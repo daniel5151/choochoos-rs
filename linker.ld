@@ -5,6 +5,8 @@ MEMORY {
     ram : ORIGIN = 0x01000000, LENGTH = (32M - 0x01000000)
 }
 
+__HEAP_SIZE__ = 1M;
+
 SECTIONS {
     . = 0x01000000;
 
@@ -25,13 +27,15 @@ SECTIONS {
     .text : ALIGN(4)
     {
         __TEXT_START__ = .;
-        *(.text)
-        *(.text.*)
-        *(.rodata .rodata.*)
-        *(.got)
-        *(.got.plt)
+        *(.text);
+        *(.text.*);
+        *(.rodata .rodata.*);
+        *(.got);
+        *(.got.plt);
         __TEXT_END__ = ALIGN(4);
     } > ram
+
+    __HEAP_START__ = .;
 
     /DISCARD/ :
     {
