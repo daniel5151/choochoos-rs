@@ -34,7 +34,7 @@ macro_rules! blocking_println {
     ($fmt:literal) => { blocking_println!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
-        crate::debug::BusyWaitLogger
+        crate::busy_wait_log::BusyWaitLogger
             .write_fmt(format_args!(concat!($fmt, "\n\r"), $($arg)*))
             .unwrap();
     }};

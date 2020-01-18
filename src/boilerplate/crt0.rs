@@ -1,16 +1,3 @@
-#[cfg_attr(not(test), panic_handler)]
-#[allow(dead_code, clippy::empty_loop)]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    // move top left + clear line
-    blocking_println!("\x1b[H\x1b[2K{}", info);
-
-    // TODO?: flush kernel logs
-    // TODO?: manual backtrace / crash dump
-
-    // TODO: exit to RedBoot
-    loop {}
-}
-
 /// Mirrors the core::ffi::c_void type, but adding a Copy derive
 #[repr(u8)]
 #[derive(Clone, Copy)]
@@ -35,7 +22,7 @@ unsafe extern "C" fn __start() -> isize {
     r0::zero_bss(&mut __BSS_START__, &mut __BSS_END__);
 
     #[cfg(feature = "heap")]
-    crate::heap::ALLOCATOR.init(
+    super::heap::ALLOCATOR.init(
         &mut __HEAP_START__ as *mut _ as usize,
         &mut __HEAP_SIZE__ as *mut _ as usize,
     );

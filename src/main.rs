@@ -7,14 +7,14 @@
 #[macro_use]
 extern crate alloc;
 
+// These modules need to come first, as they expose useful macros to the rest of
+// the crate
 #[macro_use]
-mod debug;
+mod busy_wait_log;
+#[macro_use]
 mod kernel_log;
 
-#[cfg(feature = "heap")]
-mod heap;
-
-mod pre_init;
+mod boilerplate;
 
 pub mod ts7200;
 pub mod uart;
