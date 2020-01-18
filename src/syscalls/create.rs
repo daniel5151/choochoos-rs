@@ -1,8 +1,8 @@
-use crate::ffi::Void;
+use core::ffi::c_void;
 
 // provided by the linker
 extern "C" {
-    static __USER_STACKS_START__: Void;
+    static __USER_STACKS_START__: c_void;
 }
 
 const USER_STACK_SIZE: usize = 0x40000;

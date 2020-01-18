@@ -1,6 +1,6 @@
 use core::ptr;
 
-use crate::ts7200::constants::uart;
+use crate::constants::uart;
 
 /// Available COM channels on the TS7200 board
 pub enum Channel {

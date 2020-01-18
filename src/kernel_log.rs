@@ -8,7 +8,7 @@ macro_rules! kdebug {
     ($fmt:literal) => { kdebug!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
-        crate::busy_wait_log::BusyWaitLogger
+        ts7200::util::BusyWaitLogger
             .write_fmt(format_args!(
                 // foreground color = blue
                 concat!("\x1b[34m", "[kdebug][{}:{}] ", "\x1b[0m", $fmt, "\n\r"),
@@ -26,10 +26,7 @@ macro_rules! kprintln {
     () => { kprintln!("") };
     ($fmt:literal) => { kprintln!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
-        use core::fmt::Write;
-        crate::busy_wait_log::BusyWaitLogger
-            .write_fmt(format_args!(concat!($fmt, "\n\r"), $($arg)*))
-            .unwrap();
+        blocking_println!($fmt, $($arg)*)
     }};
 }
 
@@ -38,10 +35,7 @@ macro_rules! kprintln {
 macro_rules! kprint {
     () => { kprint!("") };
     ($fmt:literal) => { kprint!($fmt,) };
-    ($fmt:literal, $($arg:tt)*) => {{
-        use core::fmt::Write;
-        crate::busy_wait_log::BusyWaitLogger
-            .write_fmt(format_args!($fmt, $($arg)*))
-            .unwrap();
-    }};
+    ($fmt:literal, $($arg:tt)*) => {
+        busywait_print!($fmt, $($arg)*)
+    };
 }

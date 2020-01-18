@@ -1,7 +1,8 @@
-use crate::uart::{self, Uart};
 use core::fmt;
 
-/// Implements `fmt::Write` on COM2 using busy-waiting
+use crate::hw::uart::{self, Uart};
+
+/// Implements `fmt::Write` on COM2 using busy-waiting.
 pub struct BusyWaitLogger;
 
 impl fmt::Write for BusyWaitLogger {
@@ -27,15 +28,29 @@ impl fmt::Write for BusyWaitLogger {
     }
 }
 
-/// Debug macro which dumps output to COM2 via busy waiting
+/// Debug macro to dump output via COM2 using busy waiting. Appends "\n\r" to
+/// the ouptut.
 #[macro_export]
 macro_rules! blocking_println {
     () => { blocking_println!("") };
     ($fmt:literal) => { blocking_println!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
-        crate::busy_wait_log::BusyWaitLogger
+        $crate::util::BusyWaitLogger
             .write_fmt(format_args!(concat!($fmt, "\n\r"), $($arg)*))
+            .unwrap();
+    }};
+}
+
+/// Debug macro to dump output via COM2 using busy waiting.
+#[macro_export]
+macro_rules! blocking_print {
+    () => { blocking_print!("") };
+    ($fmt:literal) => { blocking_print!($fmt,) };
+    ($fmt:literal, $($arg:tt)*) => {{
+        use core::fmt::Write;
+        $crate::util::BusyWaitLogger
+            .write_fmt(format_args!($fmt, $($arg)*))
             .unwrap();
     }};
 }

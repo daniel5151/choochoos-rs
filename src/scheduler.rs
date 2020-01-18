@@ -1,6 +1,11 @@
 use choochoos_sys::Tid;
 
-use crate::TaskDescriptor;
+pub struct TaskDescriptor {
+    priority: isize,
+    tid: Tid,
+    parent_tid: Option<Tid>,
+    sp: *mut usize,
+}
 
 pub struct Scheduler {
     tid_counter: usize,
