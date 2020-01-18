@@ -4,9 +4,15 @@
 name = "choochoo-rs"
 version = "0.1.0"
 dependencies = [
+ "embcrusted",
  "linked_list_allocator",
  "r0",
 ]
+
+[[package]]
+name = "embcrusted"
+version = "0.1.0"
+source = "git+https://github.com/daniel5151/embcrusted.git#032d55c7d8dff980afd91fa76dfcc0b895258ccd"
 
 [[package]]
 name = "linked_list_allocator"
