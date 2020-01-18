@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(const_fn, const_if_match)]
+#![feature(asm, const_fn, const_if_match)]
 #![cfg_attr(feature = "heap", feature(alloc_error_handler))]
 
 #[cfg(feature = "heap")]

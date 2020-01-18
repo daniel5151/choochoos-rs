@@ -7,6 +7,15 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // TODO?: flush kernel logs
     // TODO?: manual backtrace / crash dump
 
-    // TODO: exit to RedBoot
-    loop {}
+    // exit to RedBoot
+    unsafe {
+        asm!("mov r0, #1
+              mov pc, $0"
+            : // no outputs
+            : "r" (super::REDBOOT_RETURN_ADDRESS)
+            : "r0"
+            : "volatile");
+    }
+
+    unreachable!()
 }
