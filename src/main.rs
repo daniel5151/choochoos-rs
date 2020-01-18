@@ -1,10 +1,18 @@
 #![no_std]
 #![no_main]
 #![feature(const_fn, const_if_match)]
-#![feature(alloc_error_handler)]
+#![cfg_attr(feature = "heap", feature(alloc_error_handler))]
 
+#[cfg(feature = "heap")]
 #[macro_use]
 extern crate alloc;
+
+#[macro_use]
+mod debug;
+mod kernel_log;
+
+#[cfg(feature = "heap")]
+mod heap;
 
 mod pre_init;
 
@@ -22,8 +30,21 @@ fn main() -> isize {
 
     term_uart.write_blocking(b"> ");
     let c = term_uart.read_byte_blocking();
-    // format! uses the allocator
-    term_uart.write_blocking(format!("Read byte <{}>\n\r", c).as_bytes());
 
-    0
+    kprintln!("Read byte <{}>", c);
+
+    #[derive(Debug)]
+    struct Foo {
+        foo: u32,
+        bar: u32,
+    }
+
+    kdebug!(
+        "Zero alloc formatting test: {:#x?}",
+        Foo { foo: 123, bar: 456 }
+    );
+
+    kprintln!("Press any button to instantly die");
+    let _ = term_uart.read_byte_blocking();
+    panic!("Critical mission failure!");
 }

@@ -8,7 +8,7 @@ pub enum Channel {
     COM2,
 }
 
-/// An abstraction over the raw UART devices on the TS-7200 board.
+/// Provides a low-level interface to the raw UART devices on the TS-7200 board.
 // TODO: track order of LCH(L/M/H) register accesses to enforce proper access
 // patterns
 pub struct Uart {
