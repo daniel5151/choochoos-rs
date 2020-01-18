@@ -7,8 +7,11 @@
 #[macro_use]
 extern crate alloc;
 
+pub use choochoos_sys::{TaskFn, Tid};
+
 // These modules need to come first, as they expose useful macros to the rest of
 // the crate
+
 #[macro_use]
 mod busy_wait_log;
 #[macro_use]
@@ -20,7 +23,33 @@ pub mod ffi;
 pub mod ts7200;
 pub mod uart;
 
-use crate::ffi::Void;
+mod scheduler;
+mod syscalls;
+
+use scheduler::Scheduler;
+
+extern "C" {
+    fn _activate_task(sp: *mut usize) -> *mut usize;
+    fn _swi_handler();
+}
+
+pub struct TaskDescriptor {
+    priority: isize,
+    tid: Tid,
+    parent_tid: Option<Tid>,
+    sp: *mut usize,
+}
+
+enum Syscall {
+    Yield,
+    Exit,
+    MyTid,
+    MyParentTid,
+    Create {
+        priority: isize,
+        function: Option<extern "C" fn()>,
+    },
+}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -33,87 +62,107 @@ struct SwiUserStack {
 }
 
 #[no_mangle]
-extern "C" fn handle_syscall(no: usize, sp: SwiUserStack) -> isize {
+unsafe extern "C" fn handle_syscall(no: usize, sp: SwiUserStack) -> isize {
     kdebug!("Hello from the syscall handler!");
     kdebug!("  Called with syscall {}, {:?}", no, sp);
 
-    3
+    // marshall arguments into the correct structure
+    use Syscall::*;
+    let syscall = match no {
+        0 => Yield,
+        1 => Exit,
+        2 => MyTid,
+        3 => MyParentTid,
+        4 => Create {
+            priority: core::mem::transmute(sp.regs[0]),
+            function: core::mem::transmute(sp.regs[1]),
+        },
+        _ => panic!("Invalid syscall number"),
+    };
+
+    let kernel = &mut *KERNEL;
+    kernel.handle_syscall(syscall)
 }
 
-pub mod syscalls {
-    mod raw {
-        extern "C" {
-            pub fn Yield();
+pub struct Kernel {
+    scheduler: Scheduler,
+}
+
+static mut KERNEL: *mut Kernel = core::ptr::null_mut();
+
+impl Kernel {
+    pub fn new(first_task: TaskFn) -> Kernel {
+        let mut kernel = Kernel {
+            scheduler: Scheduler::new(),
+        };
+
+        kernel.handle_syscall(Syscall::Create {
+            priority: 3,
+            function: Some(first_task),
+        });
+
+        kernel
+    }
+
+    fn schedule(&mut self) -> Option<Tid> {
+        self.scheduler.schedule()
+    }
+
+    fn activate(&mut self, tid: Tid) {
+        let sp = self.scheduler.get_sp_mut(tid);
+        let next_sp = unsafe { _activate_task(sp) };
+        self.scheduler.on_yield(tid, next_sp)
+    }
+
+    // TODO: change return value to result
+    fn handle_syscall(&mut self, sysall: Syscall) -> isize {
+        use Syscall::*;
+        match sysall {
+            Yield => syscalls::r#yield(),
+            Exit => syscalls::exit(&mut self.scheduler),
+            MyTid => unimplemented!(),
+            MyParentTid => unimplemented!(),
+            Create { priority, function } => {
+                return syscalls::create(&mut self.scheduler, priority, function)
+            }
         }
-    }
 
-    pub fn r#yield() {
-        unsafe { raw::Yield() }
+        0
     }
 }
 
-/// Helper POD struct to init new user task stacks
-#[repr(C)]
-#[derive(Debug)]
-struct FreshStack {
-    dummy_syscall_response: usize,
-    start_addr: fn(),
-    spsr: usize,
-    regs: [usize; 13],
-    lr: usize,
-}
-
-// provided by the linker
-extern "C" {
-    static __USER_STACKS_START__: Void;
-}
-
-const USER_STACK_SIZE: usize = 0x40000;
-
-fn create_task(_priority: usize, function: fn()) -> usize {
-    // set up memory for the initial user stack
-    let start_of_stack = unsafe { (&__USER_STACKS_START__ as *const _ as usize) + USER_STACK_SIZE };
-    let top_of_stack = start_of_stack - core::mem::size_of::<FreshStack>();
-
-    let stack = unsafe { &mut *(top_of_stack as *mut usize as *mut FreshStack) };
-
-    stack.dummy_syscall_response = 0xdead_beef;
-    stack.spsr = 0xc0;
-    stack.start_addr = function;
-    for r in &mut stack.regs {
-        *r = 0;
-    }
-    stack.lr = 0;
-
-    top_of_stack
-}
-
-pub fn dummy_task() {
+pub extern "C" fn dummy_task() {
     blocking_println!("Hello from user space!");
-    syscalls::r#yield();
+    choochoos_sys::r#yield();
+    blocking_println!("Hello once again from user space!");
+    // implicit return
 }
 
-extern "C" {
-    fn _activate_task(sp: usize) -> usize;
-    fn _swi_handler();
+fn hardware_init() {
+    let mut term_uart = unsafe { uart::Uart::new(uart::Channel::COM2) };
+    term_uart.set_fifo(false);
 }
 
 fn main() -> isize {
-    // Mess around with the UART
-    let mut term_uart = unsafe { uart::Uart::new(uart::Channel::COM2) };
-    term_uart.set_fifo(false);
+    hardware_init();
 
-    // set swi handler
+    kprintln!("Hello from the kernel!");
+
+    // register swi handler
     unsafe {
         core::ptr::write_volatile(0x28 as *mut unsafe extern "C" fn(), _swi_handler);
     }
 
-    kprintln!("Hello from the kernel!");
+    // init the kernel with the first user task
+    let mut kern = Kernel::new(dummy_task);
+    unsafe {
+        KERNEL = &mut kern;
+    }
 
-    let sp = create_task(3, dummy_task);
-    kprintln!("Activating task with sp {:#x?}", sp);
-    let next_sp = unsafe { _activate_task(sp) };
-    kprintln!("Returned from task, new sp at {:#x?}", next_sp);
+    // let 'er rip
+    while let Some(tid) = kern.schedule() {
+        kern.activate(tid);
+    }
 
     kprintln!("Goodbye from the kernel!");
 

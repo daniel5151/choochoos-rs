@@ -73,8 +73,3 @@ _activate_task:
     // set the spsr to the user's saved spsr
     msr     spsr,r2
     movs    pc,r1
-
-.global Yield
-Yield:
-    swi #0
-    bx lr
