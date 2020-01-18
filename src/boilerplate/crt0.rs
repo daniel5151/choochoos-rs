@@ -1,4 +1,4 @@
-use super::Void;
+use crate::ffi::Void;
 
 #[no_mangle]
 unsafe extern "C" fn _start() -> isize {

@@ -27,6 +27,11 @@
       "-nmagic"
     ]
   },
+  "post-link-args": {
+    "ld": [
+      "-Map=target/choochoos.map"
+    ]
+  },
   "position-independent-executables": true,
   "relocation-model": "static",
   "target-c-int-width": "32",
