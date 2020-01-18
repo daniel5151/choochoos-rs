@@ -10,11 +10,12 @@ heap = ["linked_list_allocator"]
 
 [dependencies]
 r0 = "0.2"
+linked_list_allocator = { version =  "0.6", default-features = false, optional = true }
 
 choochoos-sys = { path = "./choochoos-sys" }
 ts7200 = { path = "./ts7200" }
 
-linked_list_allocator = { version =  "0.6", default-features = false, optional = true }
+k1 = { path = "./k1", optional = true }
 
 [workspace]
-members = ["choochoos-sys", "ts7200"]
+members = ["choochoos-sys", "ts7200", "k1"]

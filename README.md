@@ -26,5 +26,5 @@ cargo install cargo-xbuild
 At the moment, the recomended way to build is via the provided `Makefile`
 
 ```bash
-make build # or build-release to turn on optimization
+make k1 # or make DEBUG=1 k1 for a debug build
 ```

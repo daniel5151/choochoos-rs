@@ -10,7 +10,7 @@ pub static ALLOCATOR: LLHeap = LLHeap::new();
 #[cfg_attr(not(test), alloc_error_handler)]
 #[allow(dead_code, clippy::empty_loop)]
 fn alloc_error(_layout: Layout) -> ! {
-    let term_uart = unsafe { crate::uart::Uart::new(crate::uart::Channel::COM2) };
+    let term_uart = unsafe { ts7200::hw::uart::Uart::new(ts7200::hw::uart::Channel::COM2) };
     term_uart.write_blocking(b"ALLOCATION ERROR!\n\r");
 
     // TODO: exit to RedBoot?

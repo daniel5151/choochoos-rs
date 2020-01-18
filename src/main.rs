@@ -10,10 +10,21 @@ extern crate alloc;
 #[macro_use]
 extern crate ts7200;
 
-pub use choochoos_sys::{TaskFn, Tid};
+// ------------- <userspace> ------------- //
 
-// These modules need to come first, as they expose useful macros to the rest of
-// the crate
+#[cfg(feature = "k1")]
+extern crate k1;
+
+#[cfg(not(feature = "k1"))]
+mod dummy_process {
+    #[no_mangle]
+    pub extern "C" fn init_task() {
+        blocking_println!("Running dummy process...");
+        blocking_println!("Did you specify a userspace --feature when compiling?");
+    }
+}
+
+// ------------- </userspace> ------------- //
 
 #[macro_use]
 mod kernel_log;
@@ -26,11 +37,16 @@ mod syscalls;
 use kernel::Kernel;
 use scheduler::Scheduler;
 
-pub extern "C" fn dummy_task() {
-    blocking_println!("Hello from user space!");
-    choochoos_sys::r#yield();
-    blocking_println!("Hello once again from user space!");
-    // implicit return
+// init_task is technically an `unsafe extern "C" fn`, instead of a plain 'ol
+// `extern "C" fn`, so this zero-cost trampoline has to be used to make the
+// signatures line up.
+#[inline]
+extern "C" fn init_task_trampoline() {
+    extern "C" {
+        fn init_task();
+    }
+
+    unsafe { init_task() }
 }
 
 fn hardware_init() {
@@ -46,7 +62,7 @@ fn main() -> isize {
     kprintln!("Hello from the kernel!");
 
     // init the kernel with the first user task
-    let kern = unsafe { Kernel::init(dummy_task) };
+    let kern = unsafe { Kernel::init(init_task_trampoline) };
 
     // let 'er rip
     while let Some(tid) = kern.schedule() {
