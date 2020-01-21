@@ -7,24 +7,11 @@
 #[macro_use]
 extern crate alloc;
 
+// ensure the userspace is linked in
+extern crate userspace;
+
 #[macro_use]
 extern crate ts7200;
-
-// ------------- <userspace> ------------- //
-
-#[cfg(feature = "k1")]
-extern crate k1;
-
-#[cfg(not(feature = "k1"))]
-mod dummy_process {
-    #[no_mangle]
-    pub extern "C" fn init_task() {
-        blocking_println!("Running dummy process...");
-        blocking_println!("Did you specify a userspace --feature when compiling?");
-    }
-}
-
-// ------------- </userspace> ------------- //
 
 #[macro_use]
 mod kernel_log;

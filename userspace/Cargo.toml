@@ -1,5 +1,5 @@
 [package]
-name = "k1"
+name = "userspace"
 version = "0.1.0"
 authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
@@ -7,3 +7,8 @@ edition = "2018"
 [dependencies]
 choochoos-sys = { path = "../choochoos-sys" }
 ts7200 = { path = "../ts7200" }
+
+[features]
+default = []
+k1 = []
+k2 = []

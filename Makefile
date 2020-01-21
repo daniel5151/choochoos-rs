@@ -7,14 +7,15 @@ ifndef DEBUG
 	CARGO_FLAGS += --release
 endif
 
-all: build
-
-build:
-	cargo xbuild $(CARGO_FLAGS)
+all: k1
 
 .PHONY: k1
 k1:
 	cargo xbuild $(CARGO_FLAGS) --features "k1"
+
+.PHONY: k2
+k2:
+	cargo xbuild $(CARGO_FLAGS) --features "k2"
 
 clean:
 	cargo clean
