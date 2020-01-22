@@ -12,7 +12,7 @@ impl Tid {
     ///
     /// # Safety
     ///
-    /// Must correspond to a valid Task Descriptor.
+    /// The val should always correspond to a valid task descriptor.
     pub unsafe fn from_raw(val: usize) -> Tid {
         Tid(val)
     }
@@ -25,6 +25,7 @@ impl Tid {
 
 pub mod error {
     /// Errors returned by the `Create` syscall
+    #[derive(Debug)]
     pub enum CreateError {
         InvalidPriority,
         OutOfTaskDescriptors,

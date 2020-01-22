@@ -8,13 +8,13 @@ Exit:
     swi #1
     bx lr
 
-.global MyParentTid
-MyParentTid:
+.global MyTid
+MyTid:
     swi #2
     bx lr
 
-.global MyTid
-MyTid:
+.global MyParentTid
+MyParentTid:
     swi #3
     bx lr
 

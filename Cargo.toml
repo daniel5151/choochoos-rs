@@ -13,6 +13,7 @@ k2 = ["userspace/k2"]
 
 [dependencies]
 choochoos-sys = { path = "./choochoos-sys" }
+generic-containers = { path = "./generic-containers" }
 ts7200 = { path = "./ts7200" }
 
 userspace = { path = "./userspace" }
@@ -23,4 +24,9 @@ linked_list_allocator = { version =  "0.6", default-features = false, optional =
 
 
 [workspace]
-members = ["choochoos-sys", "ts7200", "userspace"]
+members = [
+    "choochoos-sys",
+    "generic-containers",
+    "ts7200",
+    "userspace"
+]
