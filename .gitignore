@@ -1,4 +1,5 @@
 /target
+/bin
 **/*.rs.bk
 
 .gdb_history
