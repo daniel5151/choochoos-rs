@@ -7,6 +7,7 @@ macro_rules! impl_queue {
             Empty,
         }
 
+        #[derive(Debug)]
         pub struct Queue<T> {
             start: usize,
             len: usize,

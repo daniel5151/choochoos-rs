@@ -1,10 +1,33 @@
 use choochoos_sys::Tid;
 
-pub struct TaskDescriptor {
+mod mailbox {
+    generic_containers::impl_queue!(16);
+}
+
+use mailbox::Queue as Mailbox;
+
+#[derive(Debug)]
+pub enum TaskState<'a> {
+    Ready { mailbox: Mailbox<&'a [u8]> },
+    ReceiveWait { recv_buf: &'a mut [u8] },
+    ReplyWait { reply_buf: &'a mut [u8] },
+}
+
+pub struct TaskDescriptor<'a> {
     priority: isize,
     tid: Tid,
     parent_tid: Option<Tid>,
     sp: *mut usize,
+    state: TaskState<'a>,
+}
+
+impl<'a> TaskDescriptor<'a> {
+    pub fn is_ready(&self) -> bool {
+        match self.state {
+            TaskState::Ready { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 mod pq {
@@ -13,7 +36,7 @@ mod pq {
 use pq::PriorityQueue;
 
 pub struct Scheduler {
-    tasks: [Option<TaskDescriptor>; 8],
+    tasks: [Option<TaskDescriptor<'static>>; 8],
     current_tid: Option<Tid>,
     ready_queue: PriorityQueue<Tid>,
 }
@@ -31,10 +54,20 @@ impl Scheduler {
     pub fn schedule(&mut self) -> Option<Tid> {
         match self.ready_queue.pop() {
             Err(_) => None,
-            Ok(tid) => {
-                self.current_tid = Some(tid);
-                Some(tid)
-            }
+            Ok(tid) => match &self.tasks[tid.raw()].as_ref() {
+                None => panic!("trying to schedule inactive task tid={:?}", tid),
+                Some(task) => {
+                    match &task.state {
+                        TaskState::Ready { .. } => (),
+                        state => panic!(
+                            "trying to schedule task in non-ready state: tid={:?} state={:?}",
+                            tid, state
+                        ),
+                    }
+                    self.current_tid = Some(tid);
+                    Some(tid)
+                }
+            },
         }
     }
 
@@ -59,11 +92,74 @@ impl Scheduler {
             }
             Some(task) => {
                 task.sp = new_sp;
-                self.ready_queue
-                    .push(tid, task.priority as usize)
-                    .expect("out of space on the ready queue");
+                if task.is_ready() {
+                    self.ready_queue
+                        .push(tid, task.priority as usize)
+                        .expect("out of space on the ready queue")
+                }
             }
         }
+    }
+
+    pub fn handle_send(&mut self, tid: Tid, msg: &'static [u8]) -> isize {
+        match self.tasks[tid.raw()].as_mut() {
+            None => -1,
+            Some(receiver) => {
+                use TaskState::*;
+                match &mut receiver.state {
+                    Ready { mailbox } => match mailbox.push_back(msg) {
+                        Ok(()) => 0,
+                        Err(_) => -2, // mailbox was full
+                    },
+                    ReplyWait { reply_buf } => -2,
+                    ReceiveWait { recv_buf } => {
+                        let l = core::cmp::min(msg.len(), recv_buf.len());
+                        recv_buf[..l].clone_from_slice(&msg[..l]);
+                        receiver.state = Ready {
+                            mailbox: Mailbox::new(),
+                        };
+                        self.ready_queue
+                            .push(tid, receiver.priority as usize)
+                            .expect("out of space on the ready queue");
+                        0
+                    }
+                }
+            }
+        }
+    }
+    pub fn handle_receive(&mut self, tid: &mut Tid, recv_buf: &'static mut [u8]) -> isize {
+        use TaskState::*;
+        let tid = self.current_tid.unwrap();
+        let task = self.tasks[tid.raw()]
+            .as_mut()
+            .expect("Receive() from an inactive task");
+
+        match &mut task.state {
+            ReplyWait { .. } | ReceiveWait { .. } => panic!(
+                "Receive() from a task in an invalid state: {:?}",
+                task.state
+            ),
+            Ready { mailbox } => match mailbox.pop_front() {
+                Err(_) => {
+                    task.state = ReceiveWait { recv_buf };
+                    0
+                }
+                Ok(msg) => {
+                    let l = core::cmp::min(msg.len(), recv_buf.len());
+                    recv_buf[..l].clone_from_slice(&msg[..l]);
+                    task.state = Ready {
+                        mailbox: Mailbox::new(),
+                    };
+                    self.ready_queue
+                        .push(tid, task.priority as usize)
+                        .expect("out of space on the ready queue");
+                    0
+                }
+            },
+        }
+    }
+    pub fn handle_reply(&mut self, tid: Tid, reply: &[u8]) -> isize {
+        unimplemented!()
     }
 
     /// Create a new task with the given priority. Returns None if the kernel
@@ -88,6 +184,9 @@ impl Scheduler {
             tid,
             parent_tid: self.current_tid(),
             sp: stack_init_fn(tid),
+            state: TaskState::Ready {
+                mailbox: Mailbox::new(),
+            },
         });
 
         self.ready_queue

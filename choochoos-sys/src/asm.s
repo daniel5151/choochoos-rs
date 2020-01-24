@@ -1,24 +1,47 @@
 .global Yield
+
 Yield:
-    swi #0
-    bx lr
+	swi #0
+	bx  lr
 
-.global Exit
+	.global Exit
+
 Exit:
-    swi #1
-    bx lr
+	swi #1
+	bx  lr
 
-.global MyTid
+	.global MyTid
+
 MyTid:
-    swi #2
-    bx lr
+	swi #2
+	bx  lr
 
-.global MyParentTid
+	.global MyParentTid
+
 MyParentTid:
-    swi #3
-    bx lr
+	swi #3
+	bx  lr
 
-.global Create
+	.global Create
+
 Create:
-    swi #4
-    bx lr
+	swi #4
+	bx  lr
+
+	.global Send
+
+Send:
+	swi #5
+	bx  lr
+
+	.global Receive
+
+Receive:
+	swi #6
+	bx  lr
+
+	.global Reply
+
+Reply:
+	swi #7
+	bx  lr

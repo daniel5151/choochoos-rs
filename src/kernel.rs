@@ -18,6 +18,21 @@ pub enum Syscall {
         priority: isize,
         function: Option<extern "C" fn()>,
     },
+    Send {
+        tid: Tid,
+        msg: *const u8,
+        len: usize,
+    },
+    Receive {
+        tid: *mut Tid,
+        recv_buf: *mut u8,
+        len: usize,
+    },
+    Reply {
+        tid: Tid,
+        reply: *const u8,
+        len: usize,
+    },
 }
 
 pub struct Kernel {
@@ -80,6 +95,19 @@ impl Kernel {
                 .map(|tid| tid.raw() as isize)
                 .unwrap_or(-1), // implementation dependent
             Create { priority, function } => self.handle_create(priority, function),
+            Send { tid, msg, len } => {
+                let msg = unsafe { core::slice::from_raw_parts(msg, len) };
+                self.scheduler.handle_send(tid, msg)
+            }
+            Receive { tid, recv_buf, len } => {
+                let recv_buf = unsafe { core::slice::from_raw_parts_mut(recv_buf, len) };
+                let tid = unsafe { &mut *tid };
+                self.scheduler.handle_receive(tid, recv_buf)
+            }
+            Reply { tid, reply, len } => {
+                let reply = unsafe { core::slice::from_raw_parts(reply, len) };
+                self.scheduler.handle_reply(tid, reply)
+            }
         }
     }
 
@@ -173,6 +201,21 @@ unsafe extern "C" fn handle_syscall(no: usize, sp: *const SwiUserStack) -> isize
         4 => Create {
             priority: core::mem::transmute(sp.regs[0]),
             function: core::mem::transmute(sp.regs[1]),
+        },
+        5 => Send {
+            tid: core::mem::transmute(sp.regs[0]),
+            msg: core::mem::transmute(sp.regs[1]),
+            len: core::mem::transmute(sp.regs[2]),
+        },
+        6 => Receive {
+            tid: core::mem::transmute(sp.regs[0]),
+            recv_buf: core::mem::transmute(sp.regs[1]),
+            len: core::mem::transmute(sp.regs[2]),
+        },
+        7 => Reply {
+            tid: core::mem::transmute(sp.regs[0]),
+            reply: core::mem::transmute(sp.regs[1]),
+            len: core::mem::transmute(sp.regs[2]),
         },
         _ => panic!("Invalid syscall number"),
     };

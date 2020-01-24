@@ -39,6 +39,9 @@ mod raw {
         pub fn MyTid() -> isize;
         pub fn MyParentTid() -> isize;
         pub fn Create(priority: isize, function: Option<extern "C" fn()>) -> isize;
+        pub fn Send(tid: isize, msg: *const u8, len: usize) -> isize;
+        pub fn Receive(tid: *mut isize, recv_buf: *mut u8, len: usize) -> isize;
+        pub fn Reply(tid: isize, reply: *const u8, len: usize) -> isize;
     }
 }
 
@@ -47,6 +50,35 @@ mod raw {
 /// executing when next scheduled.
 pub fn r#yield() {
     unsafe { raw::Yield() }
+}
+
+// TODO change the isize error types to something meaningful
+pub fn send(tid: Tid, msg: &[u8]) -> Result<(), isize> {
+    let ret = unsafe { raw::Send(tid.raw() as isize, msg.as_ptr(), msg.len()) };
+    if ret < 0 {
+        Err(ret)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn receive(buf: &mut [u8]) -> Result<Tid, isize> {
+    let mut tid_ = 0;
+    let ret = unsafe { raw::Receive(&mut tid_, buf.as_mut_ptr(), buf.len()) };
+    if ret < 0 {
+        Err(ret)
+    } else {
+        Ok(Tid(tid_ as usize))
+    }
+}
+
+pub fn reply(tid: Tid, reply: &[u8]) -> Result<(), isize> {
+    let ret = unsafe { raw::Reply(tid.raw() as isize, reply.as_ptr(), reply.len()) };
+    if ret < 0 {
+        Err(ret)
+    } else {
+        Ok(())
+    }
 }
 
 /// Causes a task to cease execution permanently. It is removed from all
