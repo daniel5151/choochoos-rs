@@ -119,7 +119,7 @@ impl Kernel {
                 // set up memory for the initial user stack
                 let stackview = &mut *(sp as *mut FreshStack);
                 stackview.dummy_syscall_response = 0xdead_beef;
-                stackview.spsr = 0xc0;
+                stackview.spsr = 0xd0;
                 stackview.start_addr = Some(function);
                 for (i, r) in &mut stackview.regs.iter_mut().enumerate() {
                     *r = i;
