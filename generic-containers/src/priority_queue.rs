@@ -1,3 +1,5 @@
+//! TODO: reimplement as a binary heap
+
 #[macro_export]
 macro_rules! impl_priority_queue {
     ($MAX_PRIORITY:literal, $N:literal) => {
@@ -5,12 +7,11 @@ macro_rules! impl_priority_queue {
         mod q {
             $crate::impl_queue!($N);
         }
-        use q::{Queue, QueueError};
+        use q::Queue;
 
         #[derive(Debug)]
         pub enum PriorityQueueError {
             Full,
-            Empty,
             BadPriority,
         }
 
@@ -35,28 +36,25 @@ macro_rules! impl_priority_queue {
                 self.queues.iter().all(|q| q.is_empty())
             }
 
-            pub fn push(&mut self, val: T, priority: usize) -> Result<(), PriorityQueueError> {
+            pub fn push(&mut self, val: T, priority: usize) -> Result<(), (T, PriorityQueueError)> {
                 if priority > $MAX_PRIORITY {
-                    return Err(PriorityQueueError::BadPriority);
+                    return Err((val, PriorityQueueError::BadPriority));
                 }
 
-                if let Err(e) = self.queues[priority].push_back(val) {
-                    return Err(match e {
-                        QueueError::Full => PriorityQueueError::Full,
-                        QueueError::Empty => PriorityQueueError::Empty,
-                    });
+                if let Err(val) = self.queues[priority].push_back(val) {
+                    return Err((val, PriorityQueueError::Full));
                 }
 
                 Ok(())
             }
 
-            pub fn pop(&mut self) -> Result<T, PriorityQueueError> {
+            pub fn pop(&mut self) -> Option<T> {
                 for q in self.queues.iter_mut().rev() {
-                    if let Ok(val) = q.pop_front() {
-                        return Ok(val);
+                    if let Some(val) = q.pop_front() {
+                        return Some(val);
                     }
                 }
-                Err(PriorityQueueError::Empty)
+                None
             }
         }
     };

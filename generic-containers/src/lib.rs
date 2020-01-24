@@ -12,7 +12,7 @@ pub mod examples {
         impl_queue!(16);
     }
 
-    pub use {q_16::Queue as Queue_16, q_16::QueueError as Queue_16Error};
+    pub use q_16::Queue as Queue_16;
 
     mod pq_8_16 {
         impl_priority_queue!(8, 16);

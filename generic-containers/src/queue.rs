@@ -1,12 +1,6 @@
 #[macro_export]
 macro_rules! impl_queue {
     ($N:literal) => {
-        #[derive(Debug)]
-        pub enum QueueError {
-            Full,
-            Empty,
-        }
-
         pub struct Queue<T> {
             start: usize,
             len: usize,
@@ -40,9 +34,10 @@ macro_rules! impl_queue {
                 self.len == 0
             }
 
-            pub fn push_back(&mut self, val: T) -> Result<(), QueueError> {
+            /// Returns back `val` if the vector is full.
+            pub fn push_back(&mut self, val: T) -> Result<(), T> {
                 if self.len >= $N {
-                    return Err(QueueError::Full);
+                    return Err(val);
                 }
 
                 self.buf[(self.start + self.len) % $N] = Some(val);
@@ -51,24 +46,24 @@ macro_rules! impl_queue {
                 Ok(())
             }
 
-            pub fn pop_front(&mut self) -> Result<T, QueueError> {
+            pub fn pop_front(&mut self) -> Option<T> {
                 if self.len == 0 {
-                    return Err(QueueError::Empty);
+                    return None;
                 }
 
                 let ret = self.buf[self.start].take().unwrap();
                 self.start = (self.start + 1) % $N;
                 self.len -= 1;
 
-                Ok(ret)
+                Some(ret)
             }
 
-            pub fn peek_front(&self) -> Result<&T, QueueError> {
+            pub fn peek_front(&self) -> Option<&T> {
                 if self.len == 0 {
-                    return Err(QueueError::Empty);
+                    return None;
                 }
 
-                Ok(self.buf[self.start].as_ref().unwrap())
+                Some(self.buf[self.start].as_ref().unwrap())
             }
         }
     };

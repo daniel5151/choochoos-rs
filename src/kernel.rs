@@ -3,7 +3,7 @@ use choochoos_sys::Tid;
 mod pq {
     generic_containers::impl_priority_queue!(8, 16);
 }
-use pq::{PriorityQueue, PriorityQueueError};
+use pq::PriorityQueue;
 
 extern "C" {
     // implemented in asm.s
@@ -44,6 +44,7 @@ pub struct TaskDescriptor {
 /// Global kernel singleton
 pub static mut KERNEL: Option<Kernel> = None;
 
+/// The core choochoos kernel!
 pub struct Kernel {
     tasks: [Option<TaskDescriptor>; 8],
     current_tid: Option<Tid>,
@@ -86,15 +87,12 @@ impl Kernel {
         loop {
             // determine which tid to schedule next
             let tid = match self.ready_queue.pop() {
-                Ok(tid) => {
-                    self.current_tid = Some(tid);
-                    tid
-                }
-                Err(PriorityQueueError::Empty) => return,
-                Err(e) => panic!("Unexpected error: {:?}", e),
+                Some(tid) => tid,
+                None => return,
             };
 
             // activate the task
+            self.current_tid = Some(tid);
             let sp = self.tasks[tid.raw()].as_mut().unwrap().sp;
             let next_sp = unsafe { _activate_task(sp) };
 
