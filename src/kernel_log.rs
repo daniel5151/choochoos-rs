@@ -17,9 +17,9 @@ macro_rules! kdebug {
                     file!(),
                     line!(),
                     unsafe {
-                        $crate::KERNEL
+                        $crate::kernel::KERNEL
                             .as_ref()
-                            .unwrap()
+                            .expect("called kernel debug fn before kernel has been initialized")
                             .current_tid()
                             .map(|t| t.raw() as isize)
                             .unwrap_or(-1)

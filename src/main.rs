@@ -18,19 +18,6 @@ mod kernel_log;
 
 mod boilerplate;
 mod kernel;
-mod scheduler;
-
-// FirstUserTask is technically an `unsafe extern "C" fn` instead of a plain 'ol
-// `extern "C" fn`. This trampoline is a zero-cost way to get the types to line
-// up correctly.
-#[inline]
-extern "C" fn first_user_task_trampoline() {
-    extern "C" {
-        fn FirstUserTask();
-    }
-
-    unsafe { FirstUserTask() }
-}
 
 fn hardware_init() {
     use ts7200::hw::uart;
@@ -39,22 +26,14 @@ fn hardware_init() {
     term_uart.set_fifo(false);
 }
 
-pub static mut KERNEL: Option<kernel::Kernel> = None;
-
 fn main() -> isize {
     hardware_init();
 
-    kprintln!("Hello from the kernel!");
-
     // init the kernel with the first user task
-    let kern = unsafe { kernel::Kernel::init(first_user_task_trampoline) };
+    let kern = unsafe { kernel::Kernel::init() };
 
-    // let 'er rip
-    while let Some(tid) = kern.schedule() {
-        kern.activate_task(tid);
-    }
-
-    kprintln!("Goodbye from the kernel!");
+    // let the kernel do it's thing!
+    kern.run();
 
     0
 }
