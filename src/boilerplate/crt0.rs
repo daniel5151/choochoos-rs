@@ -1,36 +1,30 @@
-/// Mirrors the core::ffi::c_void type, but adding a Copy derive
-#[repr(u8)]
-#[derive(Clone, Copy)]
-#[allow(dead_code)]
-enum Void {
-    #[doc(hidden)]
-    Variant1,
-    #[doc(hidden)]
-    Variant2,
+use core::ffi::c_void;
+
+// provided by the linker
+extern "C" {
+    static mut __BSS_START__: c_void;
+    static mut __BSS_END__: c_void;
+    static mut __HEAP_START__: c_void;
+    static mut __HEAP_SIZE__: usize;
 }
 
 #[no_mangle]
 unsafe extern "C" fn _start() -> isize {
-    // save the return address locally, as super::REDBOOT_RETURN_ADDRESS might
-    // be placed in .bss, which we clear later in this function!
-    let redboot_return_address: *const core::ffi::c_void;
+    // save the return address on the stack, as super::REDBOOT_RETURN_ADDRESS
+    // might be placed in .bss, which is cleared later on in this function!
+    let redboot_return_address: *const c_void;
     llvm_asm!("mov $0, lr" : "=r" (redboot_return_address) ::: "volatile");
 
-    // provided by the linker
-    extern "C" {
-        static mut __BSS_START__: Void;
-        static mut __BSS_END__: Void;
-        static mut __HEAP_START__: Void;
-        static mut __HEAP_SIZE__: Void;
+    // zero bss
+    let mut bss_start = &mut __BSS_START__ as *mut _ as *mut u8;
+    while bss_start < (&mut __BSS_END__ as *mut _ as *mut u8) {
+        // must be volatile, or else this gets optimized out
+        core::ptr::write_volatile(bss_start, 0);
+        bss_start = bss_start.offset(1);
     }
 
-    r0::zero_bss(&mut __BSS_START__, &mut __BSS_END__);
-
     #[cfg(feature = "heap")]
-    super::heap::ALLOCATOR.init(
-        &mut __HEAP_START__ as *mut _ as usize,
-        &mut __HEAP_SIZE__ as *mut _ as usize,
-    );
+    super::heap::ALLOCATOR.init(&mut __HEAP_START__ as *mut _ as usize, __HEAP_SIZE__);
 
     super::REDBOOT_RETURN_ADDRESS = redboot_return_address;
 
