@@ -22,15 +22,10 @@
   "os": "none",
   "panic-strategy": "abort",
   "pre-link-args": {
-    "ld": [
-      "-Tlinker.ld",
-      "-nmagic"
-    ]
+    "ld": ["-Tts7200_redboot.ld", "-nmagic"]
   },
   "post-link-args": {
-    "ld": [
-      "-Map=target/choochoos.map"
-    ]
+    "ld": ["-Map=target/choochoos.map"]
   },
   "position-independent-executables": true,
   "relocation-model": "static",

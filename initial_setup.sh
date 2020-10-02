@@ -7,4 +7,3 @@ fi
 
 rustup toolchain add nightly
 rustup component add rust-src
-cargo install cargo-xbuild

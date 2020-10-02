@@ -1,5 +1,5 @@
 [package]
-name = "userspace"
+name = "choochoos-user"
 version = "0.1.0"
 authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"

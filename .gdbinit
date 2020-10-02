@@ -1,2 +1,2 @@
-file target/armv4-none-eabi/debug/choochoo
+file bin/choochoos-kernel
 target remote localhost:9001
