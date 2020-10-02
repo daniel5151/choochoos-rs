@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(asm)] // TODO: get rid of this at some point?
+#![feature(llvm_asm)] // TODO: move all asm to separate .asm file?
 #![cfg_attr(feature = "heap", feature(alloc_error_handler))]
 
 #[cfg(feature = "heap")]
