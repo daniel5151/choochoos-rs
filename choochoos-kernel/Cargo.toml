@@ -13,9 +13,11 @@ k2 = ["choochoos-user/k2"]
 
 [dependencies]
 choochoos-sys = { path = "../choochoos-sys" }
-generic-containers = { path = "../generic-containers" }
 ts7200 = { path = "../ts7200" }
 
 choochoos-user = { path = "../choochoos-user" }
+
+# armv4t doesn't support atomic operations, so the "cas" feature must be disabled
+heapless = { version = "0.5", default-features = false }
 
 linked_list_allocator = { version =  "0.8", default-features = false, optional = true }

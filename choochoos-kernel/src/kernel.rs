@@ -1,11 +1,9 @@
 use core::ptr;
 
-use choochoos_sys::Tid;
+use heapless::binary_heap::{BinaryHeap, Max};
+use heapless::consts::*;
 
-mod pq {
-    generic_containers::impl_priority_queue!(8, 16);
-}
-use pq::PriorityQueue;
+use choochoos_sys::Tid;
 
 extern "C" {
     // implemented in asm.s
@@ -31,7 +29,7 @@ pub enum Syscall {
     MyTid,
     MyParentTid,
     Create {
-        priority: isize,
+        priority: usize,
         function: Option<extern "C" fn()>,
     },
 }
@@ -58,20 +56,44 @@ impl UserStack {
 }
 
 pub struct TaskDescriptor {
-    priority: isize,
+    priority: usize,
     // tid: Tid,
     parent_tid: Option<Tid>,
     sp: ptr::NonNull<UserStack>,
 }
 
+/// Implements `Ord` by priority
+#[derive(Debug, Eq, PartialEq)]
+struct ReadyQueueItem {
+    pub priority: usize,
+    pub tid: Tid,
+}
+
+impl PartialOrd for ReadyQueueItem {
+    fn partial_cmp(&self, rhs: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(rhs))
+    }
+}
+
+impl Ord for ReadyQueueItem {
+    fn cmp(&self, rhs: &Self) -> core::cmp::Ordering {
+        self.priority.cmp(&rhs.priority)
+    }
+}
+
 /// Global kernel singleton
 pub static mut KERNEL: Option<Kernel> = None;
 
+// oh const generics, please land soon
+#[allow(non_camel_case_types)]
+type MAX_TASKS = U16;
+const MAX_TASKS: usize = 16;
+
 /// The core choochoos kernel!
 pub struct Kernel {
-    tasks: [Option<TaskDescriptor>; 8],
+    tasks: [Option<TaskDescriptor>; MAX_TASKS],
     current_tid: Option<Tid>,
-    ready_queue: PriorityQueue<Tid>,
+    ready_queue: BinaryHeap<ReadyQueueItem, MAX_TASKS, Max>, // matches number of tasks
 }
 
 impl Kernel {
@@ -79,7 +101,7 @@ impl Kernel {
         Kernel {
             tasks: Default::default(),
             current_tid: None,
-            ready_queue: PriorityQueue::new(),
+            ready_queue: BinaryHeap::new(),
         }
     }
 
@@ -107,7 +129,7 @@ impl Kernel {
         loop {
             // determine which tid to schedule next
             let tid = match self.ready_queue.pop() {
-                Some(tid) => tid,
+                Some(item) => item.tid,
                 // TODO: wait for IRQ
                 None => return,
             };
@@ -124,7 +146,10 @@ impl Kernel {
                 Some(task) => {
                     task.sp = next_sp;
                     self.ready_queue
-                        .push(tid, task.priority as usize)
+                        .push(ReadyQueueItem {
+                            priority: task.priority as usize,
+                            tid,
+                        })
                         .expect("out of space on the ready queue");
                 }
             }
@@ -168,7 +193,7 @@ impl Kernel {
             .map(|(i, _)| unsafe { Tid::from_raw(i) })
     }
 
-    fn handle_create(&mut self, priority: isize, function: Option<extern "C" fn()>) -> isize {
+    fn handle_create(&mut self, priority: usize, function: Option<extern "C" fn()>) -> isize {
         let function = match function {
             Some(f) => f,
             // TODO? make this an error code?
@@ -215,7 +240,7 @@ impl Kernel {
         });
 
         self.ready_queue
-            .push(tid, priority as usize)
+            .push(ReadyQueueItem { tid, priority })
             .expect("out of space on the ready queue");
 
         tid.raw() as isize

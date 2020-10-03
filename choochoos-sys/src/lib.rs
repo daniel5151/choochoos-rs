@@ -4,7 +4,7 @@
 pub type TaskFn = extern "C" fn();
 
 /// Task descriptor handle.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
 pub struct Tid(usize);
 
 impl Tid {

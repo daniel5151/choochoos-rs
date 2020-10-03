@@ -3,7 +3,6 @@ members = [
     "choochoos-kernel",
     "choochoos-sys",
     "choochoos-user",
-    "generic-containers",
     "ts7200",
 ]
 
