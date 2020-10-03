@@ -12,7 +12,7 @@ k1 = ["choochoos-user/k1"]
 k2 = ["choochoos-user/k2"]
 
 [dependencies]
-choochoos-sys = { path = "../choochoos-sys" }
+choochoos-abi = { path = "../choochoos-abi" }
 ts7200 = { path = "../ts7200" }
 
 choochoos-user = { path = "../choochoos-user" }

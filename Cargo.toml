@@ -1,7 +1,8 @@
 [workspace]
 members = [
+    "choochoos-abi",
+    "choochoos-api",
     "choochoos-kernel",
-    "choochoos-sys",
     "choochoos-user",
     "ts7200",
 ]

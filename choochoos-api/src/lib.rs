@@ -1,32 +1,15 @@
+//! An idiomatic Rust API on-top of raw `choochoos` syscalls.
+
 #![no_std]
 
-/// Function signature which can be spawned by the kernel.
-pub type TaskFn = extern "C" fn();
+pub use choochoos_abi as abi;
 
-/// Task descriptor handle.
-#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
-pub struct Tid(usize);
-
-impl Tid {
-    /// Create a new Tid from a raw value.
-    ///
-    /// # Safety
-    ///
-    /// `val` must correspond to a valid task descriptor.
-    pub unsafe fn from_raw(val: usize) -> Tid {
-        Tid(val)
-    }
-
-    /// Return the Tid's raw value.
-    pub fn raw(self) -> usize {
-        self.0
-    }
-}
+use abi::Tid;
 
 pub mod error {
     /// Errors returned by the `Create` syscall
     #[derive(Debug)]
-    pub enum CreateError {
+    pub enum Create {
         InvalidPriority,
         OutOfTaskDescriptors,
     }
@@ -61,20 +44,19 @@ pub fn exit() {
 
 /// Returns the task id of the calling task.
 pub fn my_tid() -> Tid {
-    let raw_mytid_retval = unsafe { raw::__MyTid() };
-    // TODO: assert that raw_tid >= 0
-    Tid(raw_mytid_retval as usize)
+    // SAFETY: The MyTid syscall cannot return an error
+    unsafe { Tid::from_raw(raw::__MyTid() as usize) }
 }
 
 /// Returns the task id of the task that created the calling task.
 ///
 /// Returns [`None`] if the parent task has exited or been destroyed.
 pub fn my_parent_tid() -> Option<Tid> {
-    let raw_parent_tid_retval = unsafe { raw::__MyParentTid() };
-    if raw_parent_tid_retval < 0 {
-        None
-    } else {
-        Some(Tid(raw_parent_tid_retval as usize))
+    let ret = unsafe { raw::__MyParentTid() };
+    match ret {
+        e if e < 0 => None,
+        // SAFETY: tid is guaranteed to be greater than zero
+        tid => Some(unsafe { Tid::from_raw(tid as usize) }),
     }
 }
 
@@ -86,14 +68,15 @@ pub fn my_parent_tid() -> Option<Tid> {
 /// needed to run the task, the task’s stack has been suitably initialized, and
 /// the task has been entered into its ready queue so that it will run the next
 /// time it is scheduled.
-pub fn create(priority: isize, function: extern "C" fn()) -> Result<Tid, error::CreateError> {
-    let raw_create_retval = unsafe { raw::__Create(priority, Some(function)) };
-    match raw_create_retval {
-        e if raw_create_retval < 0 => match e {
-            -1 => Err(error::CreateError::InvalidPriority),
-            -2 => Err(error::CreateError::OutOfTaskDescriptors),
+pub fn create(priority: usize, function: extern "C" fn()) -> Result<Tid, error::Create> {
+    let ret = unsafe { raw::__Create(priority as isize, Some(function)) };
+    match ret {
+        e if ret < 0 => match e {
+            -1 => Err(error::Create::InvalidPriority),
+            -2 => Err(error::Create::OutOfTaskDescriptors),
             _ => panic!("unexpected create error: {}", e),
         },
-        tid => Ok(Tid(tid as usize)),
+        // SAFETY: tid is guaranteed to be greater than zero
+        tid => Ok(unsafe { Tid::from_raw(tid as usize) }),
     }
 }

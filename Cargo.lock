@@ -19,10 +19,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
+name = "choochoos-abi"
+version = "0.1.0"
+
+[[package]]
+name = "choochoos-api"
+version = "0.1.0"
+dependencies = [
+ "choochoos-abi",
+]
+
+[[package]]
 name = "choochoos-kernel"
 version = "0.1.0"
 dependencies = [
- "choochoos-sys",
+ "choochoos-abi",
  "choochoos-user",
  "heapless",
  "linked_list_allocator",
@@ -30,14 +41,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "choochoos-sys"
-version = "0.1.0"
-
-[[package]]
 name = "choochoos-user"
 version = "0.1.0"
 dependencies = [
- "choochoos-sys",
+ "choochoos-api",
  "ts7200",
 ]
 

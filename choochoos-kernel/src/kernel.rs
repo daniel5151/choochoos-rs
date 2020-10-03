@@ -3,7 +3,7 @@ use core::ptr;
 use heapless::binary_heap::{BinaryHeap, Max};
 use heapless::consts::*;
 
-use choochoos_sys::Tid;
+use choochoos_abi::Tid;
 
 extern "C" {
     // implemented in asm.s
@@ -226,7 +226,7 @@ impl Kernel {
             for (i, r) in &mut stackview.regs.iter_mut().enumerate() {
                 *r = i;
             }
-            stackview.lr = choochoos_sys::exit as _;
+            stackview.lr = 0xffffffff; // will trigger an error in `ts7200` emulator
 
             ptr::NonNull::new_unchecked(sp)
         };
