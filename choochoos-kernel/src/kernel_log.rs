@@ -8,6 +8,7 @@ macro_rules! kdebug {
     ($fmt:literal) => { kdebug!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {
         #[cfg(debug_assertions)]
+        #[allow(unused_unsafe)]
         {
             use core::fmt::Write;
             ts7200::util::BusyWaitLogger

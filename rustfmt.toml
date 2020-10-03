@@ -1,2 +1,3 @@
 unstable_features = true
 wrap_comments = true
+enum_discrim_align_threshold = 100

@@ -3,7 +3,9 @@ use core::ptr;
 use heapless::binary_heap::{BinaryHeap, Max};
 use heapless::consts::*;
 
-use choochoos_abi::Tid;
+use choochoos_abi as abi;
+
+use abi::{syscall::SyscallNo, Tid};
 
 extern "C" {
     // implemented in asm.s
@@ -22,18 +24,6 @@ extern "C" fn first_user_task_trampoline() {
     unsafe { FirstUserTask() }
 }
 
-#[derive(Debug)]
-pub enum Syscall {
-    Yield,
-    Exit,
-    MyTid,
-    MyParentTid,
-    Create {
-        priority: usize,
-        function: Option<extern "C" fn()>,
-    },
-}
-
 /// Helper struct to provide a structured representation of the user stack
 #[repr(C)]
 #[derive(Debug)]
@@ -50,7 +40,7 @@ impl UserStack {
         core::mem::size_of::<UserStack>() - core::mem::size_of::<[usize; 4]>()
     }
 
-    unsafe fn inject_return_value(&mut self, r0: usize) {
+    fn inject_return_value(&mut self, r0: usize) {
         self.regs[0] = r0;
     }
 }
@@ -118,7 +108,7 @@ impl Kernel {
         // register interrupt handlers
         core::ptr::write_volatile(0x28 as *mut unsafe extern "C" fn(), _swi_handler);
 
-        kernel.handle_create(0, Some(first_user_task_trampoline));
+        kernel.syscall_create(0, Some(first_user_task_trampoline));
 
         kernel
     }
@@ -156,31 +146,43 @@ impl Kernel {
         }
     }
 
-    fn exec_syscall(&mut self, syscall: Syscall) -> Option<isize> {
-        kdebug!("Called {:x?}", syscall);
+    unsafe fn handle_syscall(&mut self, no: u8, sp: *mut UserStack) {
+        let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
+        let sp = sp.as_mut();
 
-        let current_tid =
-            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
+        let syscall_no = SyscallNo::from_u8(no).expect("invalid syscall");
+        kdebug!("Called {:x?}", syscall_no);
 
-        use Syscall::*;
-        match syscall {
-            Yield => None,
-            Exit => {
-                self.tasks[current_tid.raw()] = None;
-                self.current_tid = None;
+        // package raw stack args into structured enum
+        let ret = match syscall_no {
+            SyscallNo::Yield => {
+                self.syscall_yield();
                 None
             }
-            MyTid => Some(current_tid.raw() as _),
-            MyParentTid => {
-                let tid = self.tasks[current_tid.raw()]
-                    .as_ref()
-                    .map(|t| t.parent_tid)
-                    .flatten()
-                    .map(|tid| tid.raw() as isize)
-                    .unwrap_or(-1); // implementation dependent
+            SyscallNo::Exit => {
+                self.syscall_exit();
+                None
+            }
+            SyscallNo::MyParentTid => {
+                let tid = self.syscall_my_parent_tid();
                 Some(tid)
             }
-            Create { priority, function } => Some(self.handle_create(priority, function)),
+            SyscallNo::MyTid => {
+                let tid = self.syscall_my_tid();
+                Some(tid)
+            }
+            SyscallNo::Create => {
+                let tid = self.syscall_create(
+                    core::mem::transmute(sp.regs[0]),
+                    core::mem::transmute(sp.regs[1]),
+                );
+                Some(tid)
+            }
+            other => panic!("unimplemented syscall: {:?}", other),
+        };
+
+        if let Some(ret) = ret {
+            sp.inject_return_value(ret as usize);
         }
     }
 
@@ -193,7 +195,36 @@ impl Kernel {
             .map(|(i, _)| unsafe { Tid::from_raw(i) })
     }
 
-    fn handle_create(&mut self, priority: usize, function: Option<extern "C" fn()>) -> isize {
+    fn syscall_yield(&mut self) {}
+
+    fn syscall_exit(&mut self) {
+        let current_tid =
+            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
+        self.tasks[current_tid.raw()] = None;
+        self.current_tid = None;
+    }
+
+    fn syscall_my_tid(&mut self) -> isize {
+        let current_tid =
+            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
+
+        current_tid.raw() as _
+    }
+
+    fn syscall_my_parent_tid(&mut self) -> isize {
+        let current_tid =
+            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
+
+        let tid = self.tasks[current_tid.raw()]
+            .as_ref()
+            .map(|t| t.parent_tid)
+            .flatten()
+            .map(|tid| tid.raw() as isize)
+            .unwrap_or(-1); // implementation dependent
+        tid
+    }
+
+    fn syscall_create(&mut self, priority: usize, function: Option<extern "C" fn()>) -> isize {
         let function = match function {
             Some(f) => f,
             // TODO? make this an error code?
@@ -257,32 +288,11 @@ impl Kernel {
 
 /// Called by the _swi_handler assembly routine
 #[no_mangle]
-unsafe extern "C" fn handle_syscall(no: usize, sp: *mut UserStack) {
-    let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
-    let sp = sp.as_mut();
-
-    // package raw syscall + stack args into an enum
-    use Syscall::*;
-    let syscall = match no {
-        0 => Yield,
-        1 => Exit,
-        2 => MyParentTid,
-        3 => MyTid,
-        4 => Create {
-            priority: core::mem::transmute(sp.regs[0]),
-            function: core::mem::transmute(sp.regs[1]),
-        },
-        _ => panic!("Invalid syscall number"),
-    };
-
-    let ret = KERNEL
+unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
+    KERNEL
         .as_mut()
         .expect("swi handler called before kernel has been initialized")
-        .exec_syscall(syscall);
-
-    if let Some(ret) = ret {
-        sp.inject_return_value(ret as usize);
-    }
+        .handle_syscall(no, sp)
 }
 
 #[no_mangle]

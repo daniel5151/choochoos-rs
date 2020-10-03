@@ -6,15 +6,6 @@ pub use choochoos_abi as abi;
 
 use abi::Tid;
 
-pub mod error {
-    /// Errors returned by the `Create` syscall
-    #[derive(Debug)]
-    pub enum Create {
-        InvalidPriority,
-        OutOfTaskDescriptors,
-    }
-}
-
 mod raw {
     extern "C" {
         pub fn __Yield();
@@ -22,6 +13,28 @@ mod raw {
         pub fn __MyTid() -> isize;
         pub fn __MyParentTid() -> isize;
         pub fn __Create(priority: isize, function: Option<extern "C" fn()>) -> isize;
+    }
+
+    // Ensure that the type signatures match those defined in `choochoos_abi`
+    #[allow(dead_code, non_upper_case_globals)]
+    mod abi_assert {
+        use super::*;
+        use choochoos_abi::syscall;
+
+        const _: syscall::Yield = __Yield;
+        const _: syscall::Exit = __Exit;
+        const _: syscall::MyTid = __MyTid;
+        const _: syscall::MyParentTid = __MyParentTid;
+        const _: syscall::Create = __Create;
+    }
+}
+
+pub mod error {
+    /// Errors returned by the `Create` syscall
+    #[derive(Debug)]
+    pub enum Create {
+        InvalidPriority,
+        OutOfTaskDescriptors,
     }
 }
 
