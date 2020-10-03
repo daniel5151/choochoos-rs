@@ -1,3 +1,5 @@
+use core::ptr;
+
 use choochoos_sys::Tid;
 
 mod pq {
@@ -7,7 +9,7 @@ use pq::PriorityQueue;
 
 extern "C" {
     // implemented in asm.s
-    fn _activate_task(sp: *mut usize) -> *mut usize;
+    fn _activate_task(sp: ptr::NonNull<UserStack>) -> ptr::NonNull<UserStack>;
     fn _swi_handler();
 
     // provided by userspace
@@ -34,11 +36,32 @@ pub enum Syscall {
     },
 }
 
+/// Helper struct to provide a structured representation of the user stack
+#[repr(C)]
+#[derive(Debug)]
+struct UserStack {
+    spsr: usize,
+    start_addr: extern "C" fn(),
+    regs: [usize; 13],
+    lr: usize,
+    other_params: [usize; 4], // 4 could be bumped up, if more args are required
+}
+
+impl UserStack {
+    fn fresh_stack_size() -> usize {
+        core::mem::size_of::<UserStack>() - core::mem::size_of::<[usize; 4]>()
+    }
+
+    unsafe fn inject_return_value(&mut self, r0: usize) {
+        self.regs[0] = r0;
+    }
+}
+
 pub struct TaskDescriptor {
     priority: isize,
     // tid: Tid,
     parent_tid: Option<Tid>,
-    sp: *mut usize,
+    sp: ptr::NonNull<UserStack>,
 }
 
 /// Global kernel singleton
@@ -73,10 +96,7 @@ impl Kernel {
         // register interrupt handlers
         core::ptr::write_volatile(0x28 as *mut unsafe extern "C" fn(), _swi_handler);
 
-        kernel.exec_syscall(Syscall::Create {
-            priority: 4,
-            function: Some(first_user_task_trampoline),
-        });
+        kernel.handle_create(0, Some(first_user_task_trampoline));
 
         kernel
     }
@@ -88,6 +108,7 @@ impl Kernel {
             // determine which tid to schedule next
             let tid = match self.ready_queue.pop() {
                 Some(tid) => tid,
+                // TODO: wait for IRQ
                 None => return,
             };
 
@@ -110,34 +131,31 @@ impl Kernel {
         }
     }
 
-    fn exec_syscall(&mut self, syscall: Syscall) -> isize {
+    fn exec_syscall(&mut self, syscall: Syscall) -> Option<isize> {
         kdebug!("Called {:x?}", syscall);
+
+        let current_tid =
+            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
 
         use Syscall::*;
         match syscall {
-            Yield => 0,
+            Yield => None,
             Exit => {
-                self.tasks[self.current_tid.unwrap().raw()] = None;
+                self.tasks[current_tid.raw()] = None;
                 self.current_tid = None;
-                0
+                None
             }
-            MyTid => self
-                .current_tid
-                .map(|tid| tid.raw() as isize)
-                .expect("MyTid syscall cannot return None"),
+            MyTid => Some(current_tid.raw() as _),
             MyParentTid => {
-                let current_tid = match self.current_tid {
-                    Some(tid) => tid,
-                    None => return -1,
-                };
-                self.tasks[current_tid.raw()]
+                let tid = self.tasks[current_tid.raw()]
                     .as_ref()
                     .map(|t| t.parent_tid)
                     .flatten()
                     .map(|tid| tid.raw() as isize)
-                    .unwrap_or(-1) // implementation dependent
+                    .unwrap_or(-1); // implementation dependent
+                Some(tid)
             }
-            Create { priority, function } => self.handle_create(priority, function),
+            Create { priority, function } => Some(self.handle_create(priority, function)),
         }
     }
 
@@ -175,29 +193,17 @@ impl Kernel {
 
             let start_of_stack =
                 (&__USER_STACKS_START__ as *const _ as usize) + (USER_STACK_SIZE * (tid.raw() + 1));
-            let sp = (start_of_stack - core::mem::size_of::<FreshStack>()) as *mut usize;
+            let sp = (start_of_stack - UserStack::fresh_stack_size()) as *mut UserStack;
 
-            /// Helper POD struct to init new user task stacks
-            #[repr(C)]
-            #[derive(Debug)]
-            struct FreshStack {
-                dummy_syscall_response: usize,
-                start_addr: Option<extern "C" fn()>,
-                spsr: usize,
-                regs: [usize; 13],
-                lr: fn(),
-            }
-
-            let stackview = &mut *(sp as *mut FreshStack);
-            stackview.dummy_syscall_response = 0xdead_beef;
-            stackview.spsr = 0xd0;
-            stackview.start_addr = Some(function);
+            let mut stackview = &mut *sp;
+            stackview.spsr = 0x50;
+            stackview.start_addr = function;
             for (i, r) in &mut stackview.regs.iter_mut().enumerate() {
                 *r = i;
             }
-            stackview.lr = choochoos_sys::exit;
+            stackview.lr = choochoos_sys::exit as _;
 
-            sp
+            ptr::NonNull::new_unchecked(sp)
         };
 
         // create the new task descriptor
@@ -224,30 +230,19 @@ impl Kernel {
     }
 }
 
-/// Helper struct to provide a structured representation of the user stack, as
-/// provided by the _swi_handler routine
-#[repr(C)]
-#[derive(Debug)]
-struct SwiUserStack {
-    start_addr: usize,
-    spsr: usize,
-    regs: [usize; 13],
-    lr: usize,
-    other_params: [usize; 4], // 4 could be bumped up, if more args are required
-}
-
 /// Called by the _swi_handler assembly routine
 #[no_mangle]
-unsafe extern "C" fn handle_syscall(no: usize, sp: *const SwiUserStack) -> isize {
-    let sp = &*sp;
+unsafe extern "C" fn handle_syscall(no: usize, sp: *mut UserStack) {
+    let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
+    let sp = sp.as_mut();
 
-    // marshall arguments into the correct structure
+    // package raw syscall + stack args into an enum
     use Syscall::*;
     let syscall = match no {
         0 => Yield,
         1 => Exit,
-        2 => MyTid,
-        3 => MyParentTid,
+        2 => MyParentTid,
+        3 => MyTid,
         4 => Create {
             priority: core::mem::transmute(sp.regs[0]),
             function: core::mem::transmute(sp.regs[1]),
@@ -255,8 +250,17 @@ unsafe extern "C" fn handle_syscall(no: usize, sp: *const SwiUserStack) -> isize
         _ => panic!("Invalid syscall number"),
     };
 
-    KERNEL
+    let ret = KERNEL
         .as_mut()
         .expect("swi handler called before kernel has been initialized")
-        .exec_syscall(syscall)
+        .exec_syscall(syscall);
+
+    if let Some(ret) = ret {
+        sp.inject_return_value(ret as usize);
+    }
+}
+
+#[no_mangle]
+unsafe extern "C" fn handle_interrupt() {
+    // stubbed
 }

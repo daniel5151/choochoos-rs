@@ -16,10 +16,20 @@ pub extern "C" fn OtherTask() {
 }
 
 #[no_mangle]
+pub extern "C" fn TrueFirstUserTask() {
+    blocking_println!("Created: {:?}", create(3, OtherTask).unwrap());
+    blocking_println!("Created: {:?}", create(3, OtherTask).unwrap());
+    blocking_println!("Created: {:?}", create(5, OtherTask).unwrap());
+    blocking_println!("Created: {:?}", create(5, OtherTask).unwrap());
+    blocking_println!("FirstUserTask: exiting");
+    // implicit exit() on return
+}
+
+// FirstUserTask has a priority of 0, and our kernel doesn't support negative
+// priorities. Thus, we need to have the FirstUserTask spawn a new "true"
+// FirstUserTask with a higher priority.
+#[no_mangle]
 pub extern "C" fn FirstUserTask() {
-    blocking_println!("Created: {:?}", create(3, OtherTask).unwrap());
-    blocking_println!("Created: {:?}", create(3, OtherTask).unwrap());
-    blocking_println!("Created: {:?}", create(5, OtherTask).unwrap());
-    blocking_println!("Created: {:?}", create(5, OtherTask).unwrap());
+    create(4, TrueFirstUserTask).unwrap();
     // implicit exit() on return
 }
