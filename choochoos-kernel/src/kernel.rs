@@ -11,17 +11,6 @@ extern "C" {
     // implemented in asm.s
     fn _activate_task(sp: ptr::NonNull<UserStack>) -> ptr::NonNull<UserStack>;
     fn _swi_handler();
-
-    // provided by userspace
-    fn FirstUserTask();
-}
-
-// FirstUserTask is technically an `unsafe extern "C" fn` instead of a plain 'ol
-// `extern "C" fn`. This trampoline is a zero-cost way to get the types to line
-// up correctly.
-#[inline]
-extern "C" fn first_user_task_trampoline() {
-    unsafe { FirstUserTask() }
 }
 
 /// Provides a structured view into a suspended user stack.
@@ -99,9 +88,6 @@ impl Ord for ReadyQueueItem {
     }
 }
 
-/// Global kernel singleton
-pub static mut KERNEL: Option<Kernel> = None;
-
 // oh const generics, please land soon
 #[allow(non_camel_case_types)]
 type MAX_TASKS = U16;
@@ -114,15 +100,18 @@ pub struct Kernel {
     ready_queue: BinaryHeap<ReadyQueueItem, MAX_TASKS, Max>, // matches number of tasks
 }
 
-impl Kernel {
-    fn new() -> Kernel {
-        Kernel {
-            tasks: Default::default(),
-            current_tid: None,
-            ready_queue: BinaryHeap::new(),
-        }
-    }
+/// There can be only one kernel.
+///
+/// Ideally, we could have a const `Kernel::new()` method, but unfortunately,
+/// Rust's `const` support just ain't there yet. Instead, we use an Option to
+/// represent the initial "uninitialized" state, and later use unchecked unwraps
+/// to access the underlying value.
+///
+/// This could potentially be replaced with a UnsafeCell<MaybeUninit<Kernel>>,
+/// but this approach is fine for now.
+static mut KERNEL: Option<Kernel> = None;
 
+impl Kernel {
     /// Set up the global kernel context, and prime the kernel to execute it's
     /// first task.
     ///
@@ -130,11 +119,37 @@ impl Kernel {
     ///
     /// Must only be called once before the main kernel loop
     pub unsafe fn init() -> &'static mut Kernel {
-        KERNEL = Some(Kernel::new());
+        KERNEL = Some(Kernel {
+            tasks: Default::default(),
+            current_tid: None,
+            ready_queue: BinaryHeap::new(),
+        });
         let kernel = KERNEL.as_mut().unwrap();
 
-        // register interrupt handlers
+        // -------- register interrupt handlers -------- //
+
         core::ptr::write_volatile(0x28 as *mut unsafe extern "C" fn(), _swi_handler);
+
+        // -------- peripheral hardware init -------- //
+
+        use ts7200::hw::uart;
+        let mut term_uart = uart::Uart::new(uart::Channel::COM2);
+        term_uart.set_fifo(false);
+
+        // -------- spawn the FirstUserTask -------- //
+
+        // provided by userspace
+        extern "C" {
+            fn FirstUserTask();
+        }
+
+        // FirstUserTask technically has the type `unsafe extern "C" fn` instead of a
+        // plain 'ol `extern "C" fn`. This "trampoline" is a zero-cost way to get the
+        // types to line up correctly.
+        #[inline]
+        extern "C" fn first_user_task_trampoline() {
+            unsafe { FirstUserTask() }
+        }
 
         kernel.create_task(0, Some(first_user_task_trampoline));
 
@@ -143,13 +158,13 @@ impl Kernel {
 
     /// Start the main Kernel loop.
     // TODO: return status code?
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> isize {
         loop {
             // determine which tid to schedule next
             let tid = match self.ready_queue.pop() {
                 Some(item) => item.tid,
                 // TODO: wait for IRQ
-                None => return,
+                None => return 0,
             };
 
             // activate the task
@@ -190,6 +205,10 @@ impl Kernel {
             SyscallNo::Create => self.syscall_create(stack),
             other => panic!("unimplemented syscall: {:?}", other),
         };
+    }
+
+    unsafe fn handle_interrupt(&mut self) {
+        // stubbed
     }
 
     fn get_free_tid(&mut self) -> Option<Tid> {
@@ -306,13 +325,17 @@ impl Kernel {
 /// Called by the _swi_handler assembly routine
 #[no_mangle]
 unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
-    KERNEL
-        .as_mut()
-        .expect("swi handler called before kernel has been initialized")
-        .handle_syscall(no, sp)
+    match &mut KERNEL {
+        Some(kernel) => kernel.handle_syscall(no, sp),
+        None => core::hint::unreachable_unchecked(),
+    }
 }
 
+/// Called by the _irq_handler assembly routine
 #[no_mangle]
 unsafe extern "C" fn handle_interrupt() {
-    // stubbed
+    match &mut KERNEL {
+        Some(kernel) => kernel.handle_interrupt(),
+        None => core::hint::unreachable_unchecked(),
+    }
 }

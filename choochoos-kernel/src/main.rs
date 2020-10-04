@@ -19,21 +19,7 @@ mod kernel_log;
 mod boilerplate;
 mod kernel;
 
-fn hardware_init() {
-    use ts7200::hw::uart;
-
-    let mut term_uart = unsafe { uart::Uart::new(uart::Channel::COM2) };
-    term_uart.set_fifo(false);
-}
-
+// called from `_start`. See `boilerplate/crt0.rs`
 fn main() -> isize {
-    hardware_init();
-
-    // init the kernel with the first user task
-    let kern = unsafe { kernel::Kernel::init() };
-
-    // let the kernel do it's thing!
-    kern.run();
-
-    0
+    unsafe { kernel::Kernel::init() }.run()
 }

@@ -17,13 +17,13 @@ macro_rules! kdebug {
                     concat!("\x1b[33m", "[kdebug][{}:{}][tid={}] ", "\x1b[0m", $fmt, "\n\r"),
                     file!(),
                     line!(),
-                    unsafe {
-                        $crate::kernel::KERNEL
-                            .as_ref()
-                            .expect("called kernel debug fn before kernel has been initialized")
-                            .current_tid()
-                            .map(|t| t.raw() as isize)
-                            .unwrap_or(-1)
+                    match $crate::kernel::KERNEL {
+                        Some(ref kernel) => {
+                            kernel.current_tid()
+                                .map(|t| t.raw() as isize)
+                                .unwrap_or(-1)
+                        }
+                        None => unsafe { core::hint::unreachable_unchecked(); },
                     },
                     $($arg)*
                 ))
