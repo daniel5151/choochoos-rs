@@ -24,24 +24,52 @@ extern "C" fn first_user_task_trampoline() {
     unsafe { FirstUserTask() }
 }
 
-/// Helper struct to provide a structured representation of the user stack
-#[repr(C)]
+/// Provides a structured view into a suspended user stack.
+#[repr(C, align(4))]
 #[derive(Debug)]
 struct UserStack {
     spsr: usize,
-    start_addr: extern "C" fn(),
+    pc: extern "C" fn(),
     regs: [usize; 13],
     lr: usize,
-    other_params: [usize; 4], // 4 could be bumped up, if more args are required
+    // gets indexed using `get_unchecked`
+    other_params: [usize; 0],
 }
 
 impl UserStack {
-    fn fresh_stack_size() -> usize {
-        core::mem::size_of::<UserStack>() - core::mem::size_of::<[usize; 4]>()
+    // TODO?: support returning structs?
+    fn inject_return_value(&mut self, val: usize) {
+        self.regs[0] = val;
     }
 
-    fn inject_return_value(&mut self, r0: usize) {
-        self.regs[0] = r0;
+    fn args(&mut self) -> UserStackArgs<'_> {
+        UserStackArgs {
+            stack: self,
+            idx: 0,
+        }
+    }
+}
+
+/// Helper to extract arguments from a user stack.
+pub struct UserStackArgs<'a> {
+    stack: &'a UserStack,
+    idx: usize,
+}
+
+impl<'a> UserStackArgs<'a> {
+    // TODO: this could be made safe with some additional logic that checks
+    // `size_of::<T>()` and uses the appropriate ARM calling convention.
+    unsafe fn extract_ref<T: Copy>(&mut self) -> &'a T {
+        let ret = match self.idx {
+            0..=3 => &self.stack.regs[self.idx],
+            _ => self.stack.other_params.get_unchecked(self.idx - 4),
+        };
+        self.idx += 1;
+        &*(ret as *const usize as *const T)
+    }
+
+    unsafe fn extract<T: 'a + Copy>(&mut self) -> T {
+        *self.extract_ref()
     }
 }
 
@@ -108,7 +136,7 @@ impl Kernel {
         // register interrupt handlers
         core::ptr::write_volatile(0x28 as *mut unsafe extern "C" fn(), _swi_handler);
 
-        kernel.syscall_create(0, Some(first_user_task_trampoline));
+        kernel.create_task(0, Some(first_user_task_trampoline));
 
         kernel
     }
@@ -148,42 +176,20 @@ impl Kernel {
 
     unsafe fn handle_syscall(&mut self, no: u8, sp: *mut UserStack) {
         let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
-        let sp = sp.as_mut();
+        let stack = sp.as_mut();
 
         let syscall_no = SyscallNo::from_u8(no).expect("invalid syscall");
         kdebug!("Called {:x?}", syscall_no);
 
         // package raw stack args into structured enum
-        let ret = match syscall_no {
-            SyscallNo::Yield => {
-                self.syscall_yield();
-                None
-            }
-            SyscallNo::Exit => {
-                self.syscall_exit();
-                None
-            }
-            SyscallNo::MyParentTid => {
-                let tid = self.syscall_my_parent_tid();
-                Some(tid)
-            }
-            SyscallNo::MyTid => {
-                let tid = self.syscall_my_tid();
-                Some(tid)
-            }
-            SyscallNo::Create => {
-                let tid = self.syscall_create(
-                    core::mem::transmute(sp.regs[0]),
-                    core::mem::transmute(sp.regs[1]),
-                );
-                Some(tid)
-            }
+        match syscall_no {
+            SyscallNo::Yield => self.syscall_yield(stack),
+            SyscallNo::Exit => self.syscall_exit(stack),
+            SyscallNo::MyParentTid => self.syscall_my_parent_tid(stack),
+            SyscallNo::MyTid => self.syscall_my_tid(stack),
+            SyscallNo::Create => self.syscall_create(stack),
             other => panic!("unimplemented syscall: {:?}", other),
         };
-
-        if let Some(ret) = ret {
-            sp.inject_return_value(ret as usize);
-        }
     }
 
     fn get_free_tid(&mut self) -> Option<Tid> {
@@ -195,46 +201,44 @@ impl Kernel {
             .map(|(i, _)| unsafe { Tid::from_raw(i) })
     }
 
-    fn syscall_yield(&mut self) {}
+    fn syscall_yield(&mut self, _stack: &mut UserStack) {}
 
-    fn syscall_exit(&mut self) {
+    fn syscall_exit(&mut self, _stack: &mut UserStack) {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
         self.tasks[current_tid.raw()] = None;
         self.current_tid = None;
     }
 
-    fn syscall_my_tid(&mut self) -> isize {
+    fn syscall_my_tid(&mut self, stack: &mut UserStack) {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
 
-        current_tid.raw() as _
+        stack.inject_return_value(current_tid.raw())
     }
 
-    fn syscall_my_parent_tid(&mut self) -> isize {
+    fn syscall_my_parent_tid(&mut self, stack: &mut UserStack) {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
 
-        let tid = self.tasks[current_tid.raw()]
+        let ret = self.tasks[current_tid.raw()]
             .as_ref()
             .map(|t| t.parent_tid)
             .flatten()
             .map(|tid| tid.raw() as isize)
             .unwrap_or(-1); // implementation dependent
-        tid
+
+        stack.inject_return_value(ret as usize)
     }
 
-    fn syscall_create(&mut self, priority: usize, function: Option<extern "C" fn()>) -> isize {
+    fn create_task(&mut self, priority: usize, function: Option<extern "C" fn()>) -> Option<Tid> {
         let function = match function {
             Some(f) => f,
             // TODO? make this an error code?
             None => panic!("Cannot create task with null pointer"),
         };
 
-        let tid = match self.get_free_tid() {
-            Some(tid) => tid,
-            None => return -2, // out of tids
-        };
+        let tid = self.get_free_tid()?;
 
         // set up a fresh stack for the new task. This requires some unsafe,
         // low-level shenanigans.
@@ -249,11 +253,11 @@ impl Kernel {
 
             let start_of_stack =
                 (&__USER_STACKS_START__ as *const _ as usize) + (USER_STACK_SIZE * (tid.raw() + 1));
-            let sp = (start_of_stack - UserStack::fresh_stack_size()) as *mut UserStack;
+            let sp = (start_of_stack - core::mem::size_of::<UserStack>()) as *mut UserStack;
 
             let mut stackview = &mut *sp;
             stackview.spsr = 0x50;
-            stackview.start_addr = function;
+            stackview.pc = function;
             for (i, r) in &mut stackview.regs.iter_mut().enumerate() {
                 *r = i;
             }
@@ -274,7 +278,20 @@ impl Kernel {
             .push(ReadyQueueItem { tid, priority })
             .expect("out of space on the ready queue");
 
-        tid.raw() as isize
+        Some(tid)
+    }
+
+    fn syscall_create(&mut self, stack: &mut UserStack) {
+        let mut args = stack.args();
+        let priority = unsafe { args.extract::<usize>() };
+        let function = unsafe { args.extract::<Option<extern "C" fn()>>() };
+
+        let ret = match self.create_task(priority, function) {
+            Some(tid) => tid.raw() as isize,
+            None => -2,
+        };
+
+        stack.inject_return_value(ret as _);
     }
 
     // utility method to retrieve the current_tid. should only be used for debugging
