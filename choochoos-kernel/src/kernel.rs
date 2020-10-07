@@ -139,6 +139,7 @@ impl Kernel {
         // -------- spawn the FirstUserTask -------- //
 
         // provided by userspace
+        #[link(name = "userspace", kind = "static")]
         extern "C" {
             fn FirstUserTask();
         }

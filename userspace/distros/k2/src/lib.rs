@@ -1,3 +1,5 @@
+#![no_std]
+
 use ts7200::blocking_println;
 
 use choochoos_api as sys;

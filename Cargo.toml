@@ -3,8 +3,11 @@ members = [
     "choochoos-abi",
     "choochoos-api",
     "choochoos-kernel",
-    "choochoos-user",
     "ts7200",
+
+    "userspace/",
+    "userspace/distros/k1",
+    "userspace/distros/k2",
 ]
 
 [profile.release]

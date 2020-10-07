@@ -4,6 +4,8 @@ use std::process::Command;
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
+    // assemble and link assembly routines
+
     let as_result = Command::new("arm-none-eabi-as")
         .args(&["-g", "-o", &(out_dir.clone() + "/asm.o"), "src/asm.s"])
         .status()
@@ -24,4 +26,12 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", out_dir);
     println!("cargo:rustc-link-lib=static=asm");
     println!("cargo:rerun-if-changed=src/asm.s");
+
+    // link with pre-compiled userspace (libuserspace.a)
+
+    let userspace_lib_dir = env::var("CHOOCHOOS_USERSPACE_LIB").unwrap_or("bin".into());
+
+    println!("cargo:rustc-link-search=native={}", userspace_lib_dir);
+    println!("cargo:rustc-link-lib=static=userspace");
+    println!("cargo:rerun-if-changed=src/libuserspace.a");
 }

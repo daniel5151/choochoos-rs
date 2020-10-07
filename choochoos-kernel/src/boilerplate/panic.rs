@@ -11,11 +11,13 @@
 // inline-asm check in this method to cause a swi if the method is called from
 // userland. Kinda jank, but it should work.
 
+use owo_colors::OwoColorize;
+
 #[cfg_attr(not(test), panic_handler)]
 #[allow(dead_code, clippy::empty_loop)]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    // move top left + clear line
-    blocking_println!("{}", info);
+    // prints "kernel panicked at ..."
+    ts7200::blocking_println!("{}{}", "kernel ".red(), info.red());
 
     // TODO?: flush kernel logs
     // TODO?: manual backtrace / crash dump

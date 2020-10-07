@@ -22,10 +22,10 @@
   "os": "none",
   "panic-strategy": "abort",
   "pre-link-args": {
-    "ld": ["-Tts7200_redboot.ld", "-nmagic"]
+    "ld": ["-Tts7200_redboot.ld", "-nmagic", "--gc-sections"]
   },
   "post-link-args": {
-    "ld": ["-Map=target/choochoos.map"]
+    "ld": ["-Map=target/choochoos.map", "-no-print-map-discarded"]
   },
   "position-independent-executables": true,
   "relocation-model": "static",

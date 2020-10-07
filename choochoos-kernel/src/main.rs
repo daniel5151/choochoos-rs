@@ -7,10 +7,6 @@
 #[macro_use]
 extern crate alloc;
 
-// ensure the userspace is linked in
-extern crate choochoos_user;
-
-#[macro_use]
 extern crate ts7200;
 
 #[macro_use]
