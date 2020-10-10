@@ -31,9 +31,9 @@ impl fmt::Write for BusyWaitLogger {
 /// Debug macro to dump output via COM2 using busy waiting. Appends "\n\r" to
 /// the ouptut.
 #[macro_export]
-macro_rules! blocking_println {
-    () => { blocking_println!("") };
-    ($fmt:literal) => { blocking_println!($fmt,) };
+macro_rules! bwprintln {
+    () => { bwprintln!("") };
+    ($fmt:literal) => { bwprintln!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
         $crate::util::BusyWaitLogger
@@ -44,9 +44,9 @@ macro_rules! blocking_println {
 
 /// Debug macro to dump output via COM2 using busy waiting.
 #[macro_export]
-macro_rules! blocking_print {
-    () => { blocking_print!("") };
-    ($fmt:literal) => { blocking_print!($fmt,) };
+macro_rules! bwprint {
+    () => { bwprint!("") };
+    ($fmt:literal) => { bwprint!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
         $crate::util::BusyWaitLogger

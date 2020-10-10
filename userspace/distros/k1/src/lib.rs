@@ -1,30 +1,31 @@
 #![no_std]
 
-use ts7200::blocking_println;
+use ts7200::bwprintln;
 
-use choochoos_api::{create, exit, my_parent_tid, my_tid, r#yield};
+use choochoos_api as sys;
 
-// Note to the TAs:
-// We set up the stack such that the initial LR passed to a task points to the
-// "Exit" syscall method. This enables omitting a trailing Exit() call, as it
-// will be implicitly invoked once the task return.
-
-#[no_mangle]
-pub extern "C" fn OtherTask() {
-    blocking_println!("MyTid={:?} MyParentTid={:?}", my_tid(), my_parent_tid());
-    r#yield();
-    blocking_println!("MyTid={:?} MyParentTid={:?}", my_tid(), my_parent_tid());
-    exit();
+extern "C" fn other_task() {
+    bwprintln!(
+        "MyTid={:?} MyParentTid={:?}",
+        sys::my_tid(),
+        sys::my_parent_tid()
+    );
+    sys::r#yield();
+    bwprintln!(
+        "MyTid={:?} MyParentTid={:?}",
+        sys::my_tid(),
+        sys::my_parent_tid()
+    );
+    sys::exit();
 }
 
-#[no_mangle]
-pub extern "C" fn TrueFirstUserTask() {
-    blocking_println!("Created: {:?}", create(3, OtherTask).unwrap());
-    blocking_println!("Created: {:?}", create(3, OtherTask).unwrap());
-    blocking_println!("Created: {:?}", create(5, OtherTask).unwrap());
-    blocking_println!("Created: {:?}", create(5, OtherTask).unwrap());
-    blocking_println!("FirstUserTask: exiting");
-    exit();
+extern "C" fn first_user_task() {
+    bwprintln!("Created: {:?}", sys::create(3, other_task).unwrap());
+    bwprintln!("Created: {:?}", sys::create(3, other_task).unwrap());
+    bwprintln!("Created: {:?}", sys::create(5, other_task).unwrap());
+    bwprintln!("Created: {:?}", sys::create(5, other_task).unwrap());
+    bwprintln!("FirstUserTask: exiting");
+    sys::exit();
 }
 
 // FirstUserTask has a priority of 0, and our kernel doesn't support negative
@@ -32,6 +33,6 @@ pub extern "C" fn TrueFirstUserTask() {
 // FirstUserTask with a higher priority.
 #[no_mangle]
 pub extern "C" fn FirstUserTask() {
-    create(4, TrueFirstUserTask).unwrap();
-    exit();
+    sys::create(4, first_user_task).unwrap();
+    sys::exit();
 }

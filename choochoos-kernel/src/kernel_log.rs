@@ -38,7 +38,7 @@ macro_rules! kprintln {
     () => { kprintln!("") };
     ($fmt:literal) => { kprintln!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
-        blocking_println!($fmt, $($arg)*)
+        bwprintln!($fmt, $($arg)*)
     }};
 }
 
@@ -48,6 +48,6 @@ macro_rules! kprint {
     () => { kprint!("") };
     ($fmt:literal) => { kprint!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {
-        busywait_print!($fmt, $($arg)*)
+        bwprint!($fmt, $($arg)*)
     };
 }

@@ -17,7 +17,7 @@ use owo_colors::OwoColorize;
 #[allow(dead_code, clippy::empty_loop)]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     // prints "kernel panicked at ..."
-    ts7200::blocking_println!("{}{}", "kernel ".red(), info.red());
+    ts7200::bwprintln!("{}{}", "kernel ".red(), info.red());
 
     // TODO?: flush kernel logs
     // TODO?: manual backtrace / crash dump
