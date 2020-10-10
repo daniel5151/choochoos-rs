@@ -314,10 +314,11 @@ impl Kernel {
         stack.inject_return_value(ret as _);
     }
 
-    // utility method to retrieve the current_tid. should only be used for debugging
+    /// Utility method to retrieve the current_tid. Only used when the `kdebug`
+    /// feature is active.
     #[doc(hidden)]
     #[allow(dead_code)]
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "kdebug")]
     pub(crate) fn current_tid(&self) -> Option<Tid> {
         self.current_tid
     }

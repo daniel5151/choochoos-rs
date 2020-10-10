@@ -7,7 +7,7 @@ macro_rules! kdebug {
     () => { kdebug!("") };
     ($fmt:literal) => { kdebug!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "kdebug")]
         #[allow(unused_unsafe)]
         {
             use core::fmt::Write;
@@ -32,7 +32,8 @@ macro_rules! kdebug {
     };
 }
 
-/// General Purpose kernel logging mechanism. Appends "\n\r" to the output
+/// General Purpose kernel logging mechanism. Appends "\n\r" to the output.
+// TODO: hook this into an internal log buffer instead of bwprint
 #[macro_export]
 macro_rules! kprintln {
     () => { kprintln!("") };
@@ -43,6 +44,7 @@ macro_rules! kprintln {
 }
 
 /// General Purpose kernel logging mechanism.
+// TODO: hook this into an internal log buffer instead of bwprint
 #[macro_export]
 macro_rules! kprint {
     () => { kprint!("") };
