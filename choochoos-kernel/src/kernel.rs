@@ -112,31 +112,40 @@ pub struct Kernel {
 static mut KERNEL: Option<Kernel> = None;
 
 impl Kernel {
-    /// Set up the global kernel context, and prime the kernel to execute it's
-    /// first task.
-    ///
-    /// # Safety
-    ///
-    /// Must only be called once before the main kernel loop
+    /// Set up the global kernel context.
     pub unsafe fn init() -> &'static mut Kernel {
-        KERNEL = Some(Kernel {
+        if let Some(ref mut kernel) = &mut KERNEL {
+            return kernel;
+        }
+
+        // Initialize the kernel's static state.
+        let kernel = Kernel {
             tasks: Default::default(),
             current_tid: None,
             ready_queue: BinaryHeap::new(),
-        });
+        };
+
+        // Set the global kernel context.
+        KERNEL = Some(kernel);
         let kernel = KERNEL.as_mut().unwrap();
 
-        // -------- register interrupt handlers -------- //
-
+        // Register interrupt handlers
         core::ptr::write_volatile(0x28 as *mut unsafe extern "C" fn(), _swi_handler);
 
-        // -------- peripheral hardware init -------- //
-
+        // Initialize key peripheral hardware
+        // TODO: this should eventually be done from userspace.
         use ts7200::hw::uart;
         let mut term_uart = uart::Uart::new(uart::Channel::COM2);
         term_uart.set_fifo(false);
 
-        // -------- spawn the FirstUserTask -------- //
+        // as a convenience, return a reference to the newly initialized global kernel
+        kernel
+    }
+
+    /// Start the main Kernel loop.
+    // TODO: return status code?
+    pub fn run(&mut self) -> isize {
+        // -------- spawn the `FirstUserTask` -------- //
 
         // provided by userspace
         #[link(name = "userspace", kind = "static")]
@@ -144,22 +153,18 @@ impl Kernel {
             fn FirstUserTask();
         }
 
-        // FirstUserTask technically has the type `unsafe extern "C" fn` instead of a
-        // plain 'ol `extern "C" fn`. This "trampoline" is a zero-cost way to get the
-        // types to line up correctly.
+        // FirstUserTask has the type `unsafe extern "C" fn` instead of a plain 'ol
+        // `extern "C" fn`. This inlined trampoline is a zero-cost way to get the types
+        // to line up correctly.
         #[inline]
         extern "C" fn first_user_task_trampoline() {
             unsafe { FirstUserTask() }
         }
 
-        kernel.create_task(0, Some(first_user_task_trampoline));
+        self.create_task(0, Some(first_user_task_trampoline));
 
-        kernel
-    }
+        // -------- enter the main kernel loop -------- //
 
-    /// Start the main Kernel loop.
-    // TODO: return status code?
-    pub fn run(&mut self) -> isize {
         loop {
             // determine which tid to schedule next
             let tid = match self.ready_queue.pop() {
@@ -197,7 +202,6 @@ impl Kernel {
         let syscall_no = SyscallNo::from_u8(no).expect("invalid syscall");
         kdebug!("Called {:x?}", syscall_no);
 
-        // package raw stack args into structured enum
         match syscall_no {
             SyscallNo::Yield => self.syscall_yield(stack),
             SyscallNo::Exit => self.syscall_exit(stack),
