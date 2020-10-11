@@ -8,6 +8,7 @@ edition = "2018"
 default = []
 heap = ["linked_list_allocator"]
 kdebug = []
+legacy-implicit-exit = []
 
 [dependencies]
 choochoos-abi = { path = "../choochoos-abi" }

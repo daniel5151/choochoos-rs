@@ -18,14 +18,14 @@ ifdef KDEBUG
 	CARGO_KERNEL_FEATURES += kdebug
 endif
 
+all: userspace kernel # order matters here
+
 # TODO: explore https://doc.rust-lang.org/rustc/linker-plugin-lto.html to shrink
 # the resulting binary size (assuming that userspace is still being statically
 # linked with choochoos-kernel)
 
-all: kernel
-
-.PHONY: kernel
-kernel:
+.PHONY: userspace
+userspace:
 	cargo build \
 		$(CARGO_FLAGS) \
 		--manifest-path userspace/Cargo.toml \
@@ -35,10 +35,19 @@ kernel:
 	arm-none-eabi-objcopy bin/libuserspace.a \
 		--redefine-sym rust_begin_unwind=user_rust_begin_unwind
 
+.PHONY: kernel
+kernel:
+ifdef CUSTOM_USERSPACE
+	# HACK: this is a terrible kludgy solution, but I don't want to deal with build
+	# system stuff right now.
+	cp $(CUSTOM_USERSPACE) ./bin/
+endif
+
 	cargo build \
 		$(CARGO_FLAGS) \
 		--manifest-path choochoos-kernel/Cargo.toml \
 		--features "$(CARGO_KERNEL_FEATURES)"
 
 clean:
+	rm -rf ./bin/
 	cargo clean

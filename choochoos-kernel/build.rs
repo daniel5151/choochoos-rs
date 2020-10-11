@@ -27,11 +27,9 @@ fn main() {
     println!("cargo:rustc-link-lib=static=asm");
     println!("cargo:rerun-if-changed=src/asm.s");
 
-    // link with pre-compiled userspace (libuserspace.a)
+    // link with pre-compiled userspace (bin/libuserspace.a)
 
-    let userspace_lib_dir = env::var("CHOOCHOOS_USERSPACE_LIB").unwrap_or("bin".into());
-
-    println!("cargo:rustc-link-search=native={}", userspace_lib_dir);
+    println!("cargo:rustc-link-search=native=bin");
     println!("cargo:rustc-link-lib=static=userspace");
     println!("cargo:rerun-if-changed=src/libuserspace.a");
 }

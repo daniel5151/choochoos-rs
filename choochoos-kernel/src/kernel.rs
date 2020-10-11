@@ -285,7 +285,18 @@ impl Kernel {
             for (i, r) in &mut stackview.regs.iter_mut().enumerate() {
                 *r = i;
             }
+
             stackview.lr = 0xffffffff; // will trigger an error in `ts7200` emulator
+
+            // HACK: used to run old c-based choochoos programs that assumed a
+            // statically linked userspace.
+            #[cfg(feature = "legacy-implicit-exit")]
+            {
+                unsafe extern "C" fn _implicit_exit() {
+                    llvm_asm!("swi #1")
+                }
+                stackview.lr = _implicit_exit as usize;
+            }
 
             ptr::NonNull::new_unchecked(sp)
         };
