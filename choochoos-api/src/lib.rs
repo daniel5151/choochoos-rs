@@ -1,40 +1,93 @@
 //! An idiomatic Rust API on-top of raw `choochoos` syscalls.
 
 #![no_std]
+#![deny(missing_docs)]
+
+use core::num::NonZeroUsize;
 
 pub use choochoos_abi as abi;
 
 use abi::Tid;
 
 mod raw {
+    use super::abi::Tid;
+
     extern "C" {
         pub fn __Yield();
         pub fn __Exit();
         pub fn __MyTid() -> isize;
         pub fn __MyParentTid() -> isize;
         pub fn __Create(priority: isize, function: Option<extern "C" fn()>) -> isize;
+        pub fn __Send(
+            tid: Tid,
+            msg: *const u8,
+            msglen: usize,
+            reply: *mut u8,
+            rplen: usize,
+        ) -> isize;
+        pub fn __Receive(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize;
+        pub fn __Reply(tid: Tid, reply: *const u8, rplen: usize) -> isize;
     }
 
     // Ensure that the type signatures match those defined in `choochoos_abi`
-    #[allow(dead_code, non_upper_case_globals)]
     mod abi_assert {
         use super::*;
-        use choochoos_abi::syscall;
+        use choochoos_abi::syscall::signatures as sig;
 
-        const _: syscall::Yield = __Yield;
-        const _: syscall::Exit = __Exit;
-        const _: syscall::MyTid = __MyTid;
-        const _: syscall::MyParentTid = __MyParentTid;
-        const _: syscall::Create = __Create;
+        const _: sig::Yield = __Yield;
+        const _: sig::Exit = __Exit;
+        const _: sig::MyTid = __MyTid;
+        const _: sig::MyParentTid = __MyParentTid;
+        const _: sig::Create = __Create;
+        const _: sig::Send = __Send;
+        const _: sig::Receive = __Receive;
+        const _: sig::Reply = __Reply;
     }
 }
 
+/// Errors which may occur when invoking syscalls.
 pub mod error {
+    use core::num::NonZeroUsize;
+
     /// Errors returned by the `Create` syscall
     #[derive(Debug)]
     pub enum Create {
+        /// Tried to create a task with an invalid priority.
         InvalidPriority,
+        /// The Kernel has run out of task descriptors.
         OutOfTaskDescriptors,
+    }
+
+    /// Errors returned by the `Send` syscall
+    #[derive(Debug)]
+    pub enum Send {
+        /// `tid` is not the task id of an existing task.
+        TidDoesNotExist,
+        /// The send-receive-reply transaction could not be completed.
+        CouldNotSSR,
+        /// The reply was truncated. `usize` corresponds to the length of the
+        /// original reply.
+        Truncated(NonZeroUsize),
+    }
+
+    /// Errors returned by the `Receive` syscall
+    #[derive(Debug)]
+    pub enum Receive {
+        /// The message was truncated. `usize` corresponds to the length of the
+        /// original message.
+        Truncated(NonZeroUsize),
+    }
+
+    /// Errors returned by the `Reply` syscall
+    #[derive(Debug)]
+    pub enum Reply {
+        /// `tid` is not the task id of an existing task.
+        TidDoesNotExist,
+        /// `tid` is not the task id of a reply-blocked task.
+        TidIsNotReplyBlocked,
+        /// The reply was truncated. `usize` corresponds to the number of bytes
+        /// successfully written.
+        Truncated(NonZeroUsize),
     }
 }
 
@@ -91,5 +144,152 @@ pub fn create(priority: usize, function: extern "C" fn()) -> Result<Tid, error::
         },
         // SAFETY: tid is guaranteed to be greater than zero
         tid => Ok(unsafe { Tid::from_raw(tid as usize) }),
+    }
+}
+
+/// Sends a message to another task and receives a reply.
+///
+/// The message, in a buffer in the sending task’s memory, is copied to the
+/// memory of the task to which it is sent by the kernel. `send()` supplies a
+/// buffer into which the reply is to be copied, and the size of the reply
+/// buffer, so that the kernel can detect overflow.
+///
+/// When `send()` returns without error it is guaranteed that the message has
+/// been received, and that a reply has been sent, not necessarily by the same
+/// task.
+///
+/// The kernel will not overflow the reply buffer. If the size of the
+/// reply set exceeds the length of the reply buffer, the reply is truncated
+/// and a [`error::Send::Truncated`] is returned.
+///
+/// There is no guarantee that `send()` will return. If, for example, the task
+/// to which the message is directed never calls `receive()`, `send()` never
+/// returns and the sending task remains blocked forever.
+pub fn send(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Send> {
+    let ret = unsafe {
+        raw::__Send(
+            tid,
+            msg.as_ptr(),
+            msg.len(),
+            reply.as_mut_ptr(),
+            reply.len(),
+        )
+    };
+    match ret {
+        e if ret < 0 => match e {
+            -1 => Err(error::Send::TidDoesNotExist),
+            -2 => Err(error::Send::CouldNotSSR),
+            _ => panic!("unexpected send error: {}", e),
+        },
+        rplen => {
+            let rplen = rplen as usize;
+            if rplen > reply.len() {
+                // SAFETY: if rplen was zero, then `0 > reply.len(): usize` would never trigger
+                let rplen = unsafe { NonZeroUsize::new_unchecked(rplen) };
+                Err(error::Send::Truncated(rplen))
+            } else {
+                Ok(rplen)
+            }
+        }
+    }
+}
+
+/// Blocks until a message is sent to the caller, returning the Tid of the task
+/// that sent the message and the number of bytes in the message.
+///
+/// Messages sent before `receive()` is called are retained in a send queue,
+/// from which they are received in first-come, first-served order.
+///
+/// The kernel will not overflow the message buffer. If the size of the message
+/// set exceeds msglen, the message is truncated and the buffer contains the
+/// and a [`error::Receive::Truncated`] is returned.
+pub fn receive(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
+    let mut tid = unsafe { Tid::from_raw(0) };
+    let ret = unsafe { raw::__Receive(&mut tid, msg.as_mut_ptr(), msg.len()) };
+    match ret {
+        e if ret < 0 => panic!("unexpected receive error: {}", e),
+        msglen => {
+            let msglen = msglen as usize;
+            if msglen > msg.len() {
+                // SAFETY: if msglen was zero, then `0 > msg.len(): usize` would never trigger
+                let msglen = unsafe { NonZeroUsize::new_unchecked(msglen) };
+                Err(error::Receive::Truncated(msglen))
+            } else {
+                Ok((tid, msglen as usize))
+            }
+        }
+    }
+}
+
+/// Sends a reply to a task that previously sent a message.
+///
+/// When it returns without error, the reply has been entirely copied into the
+/// sender’s memory. If the message was truncated, as
+/// [`error::Reply::Truncated`] is returned.
+///
+/// The calling task and the sender return at the same logical time, so
+/// whichever is of higher priority runs first. If they are of the same
+/// priority, the sender runs first.
+pub fn reply(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
+    let ret = unsafe { raw::__Reply(tid, reply.as_ptr(), reply.len()) };
+    match ret {
+        e if ret < 0 => match e {
+            -1 => Err(error::Reply::TidDoesNotExist),
+            -2 => Err(error::Reply::TidIsNotReplyBlocked),
+            _ => panic!("unexpected send error: {}", e),
+        },
+        rplen => {
+            let rplen = rplen as usize;
+            if rplen < reply.len() {
+                // SAFETY: if rplen was zero, then `0 > reply.len(): usize` would never trigger
+                let rplen = unsafe { NonZeroUsize::new_unchecked(rplen) };
+                Err(error::Reply::Truncated(rplen))
+            } else {
+                Ok(rplen)
+            }
+        }
+    }
+}
+
+/// Methods to communicate with the global Name Server.
+///
+/// _NOTE:_ These methods are just wrappers around raw `send()` calls, taking
+/// care of any implementation-specific message un/marshalling.
+pub mod ns {
+    use super::Tid;
+
+    /// Errors which may occur when talking to the Name Server.
+    pub enum Error {
+        /// Could not reach the Name Server.
+        InvalidNameserver,
+    }
+
+    /// Registers the task id of the caller under the given name.
+    ///
+    /// On return without error, it is guaranteed that all `who_is()` calls by
+    /// any task will return the task id of the caller until the
+    /// registration is overwritten.
+    ///
+    /// If another task has already registered with the given name, its
+    /// registration is overwritten.
+    pub fn register_as(name: &str) -> Result<(), Error> {
+        unimplemented!("called register_as(name: {:?})", name)
+    }
+
+    /// Asks the name server for the task id of the task that is registered
+    /// under the given name.
+    ///
+    /// Whether `who_is()` blocks waiting for a registration or returns with an
+    /// error, if no task is registered under the given name, is
+    /// implementation-dependent.
+    ///
+    /// There is guaranteed to be a unique task id associated with each
+    /// registered name, but the registered task may change at any time
+    /// after a call to `who_is()`.
+    ///
+    /// _NOTE:_ `who_is()` is actually a wrapper around a raw `send()` to the
+    /// name server.
+    pub fn who_is(name: &str) -> Result<Tid, Error> {
+        unimplemented!("called who_is(name: {:?})", name)
     }
 }

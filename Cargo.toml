@@ -6,15 +6,17 @@ members = [
     "ts7200",
 
     "userspace/",
+    "userspace/shared/nameserver",
     "userspace/distros/k1",
     "userspace/distros/k2",
 ]
 
 [profile.release]
-panic = "abort"
-lto = true
 codegen-units = 1
+debug = true
+lto = true
+panic = "abort"
 
 [profile.dev]
-panic = "abort"
 debug = true
+panic = "abort"

@@ -1,6 +1,7 @@
 //! Types and structures exposed by the `choochoos` kernel.
 
 #![no_std]
+#![deny(missing_docs)]
 
 /// Function signature which can be spawned by the kernel.
 pub type TaskFn = extern "C" fn();
@@ -26,10 +27,15 @@ impl Tid {
     }
 }
 
+/// TID of automatically spawned nameserver.
+pub const NAMESERVER_TID: Tid = Tid(1);
+
+/// Kernel syscall interface.
 pub mod syscall {
-    /// Raw `choochoos` syscall numbers (when calling `swi #x`).
+    /// Raw `choochoos` syscall numbers (corresponding to calling `swi #x`).
     #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
     #[repr(u8)]
+    #[allow(missing_docs)]
     pub enum SyscallNo {
         Yield       = 0,
         Exit        = 1,
@@ -45,7 +51,7 @@ pub mod syscall {
     }
 
     impl SyscallNo {
-        // Convert
+        /// Return enum corresponding to raw syscall number (if one exists).
         pub fn from_u8(no: u8) -> Option<SyscallNo> {
             if no > 10 {
                 None
@@ -56,10 +62,26 @@ pub mod syscall {
         }
     }
 
-    pub type Yield = unsafe extern "C" fn();
-    pub type Exit = unsafe extern "C" fn();
-    pub type MyTid = unsafe extern "C" fn() -> isize;
-    pub type MyParentTid = unsafe extern "C" fn() -> isize;
-    pub type Create =
-        unsafe extern "C" fn(priority: isize, function: Option<extern "C" fn()>) -> isize;
+    /// Function signatures associated with each syscall.
+    #[allow(missing_docs)]
+    pub mod signatures {
+        use crate::Tid;
+
+        pub type Yield = unsafe extern "C" fn();
+        pub type Exit = unsafe extern "C" fn();
+        pub type MyParentTid = unsafe extern "C" fn() -> isize;
+        pub type MyTid = unsafe extern "C" fn() -> isize;
+        pub type Create =
+            unsafe extern "C" fn(priority: isize, function: Option<extern "C" fn()>) -> isize;
+        pub type Send = unsafe extern "C" fn(
+            tid: Tid,
+            msg: *const u8,
+            msglen: usize,
+            reply: *mut u8,
+            rplen: usize,
+        ) -> isize;
+        pub type Receive =
+            unsafe extern "C" fn(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize;
+        pub type Reply = unsafe extern "C" fn(tid: Tid, reply: *const u8, rplen: usize) -> isize;
+    }
 }
