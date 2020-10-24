@@ -28,9 +28,14 @@ struct UserStack {
 }
 
 impl UserStack {
+    /// Inject a return value into the saved user stack.
+    ///
+    /// Currently only supports values with size equal to
+    /// `mem::size_of::<usize>()`
     // TODO?: support returning structs?
-    fn inject_return_value(&mut self, val: usize) {
-        self.regs[0] = val;
+    fn inject_return_value<T: Copy>(&mut self, val: T) {
+        assert_eq!(core::mem::size_of::<T>(), core::mem::size_of::<usize>());
+        self.regs[0] = unsafe { *(&val as *const _ as *const usize) };
     }
 
     fn args(&mut self) -> UserStackArgs<'_> {
@@ -120,10 +125,13 @@ impl TaskDescriptor {
 
     /// Forcefully inject a return value into the task's stack.
     ///
+    /// Currently only supports values with size equal to
+    /// `mem::size_of::<usize>()`
+    ///
     /// # Panics
     ///
     /// Panics if the task is in the `Ready` state.
-    pub fn inject_return_value(&mut self, val: usize) {
+    pub fn inject_return_value<T: Copy>(&mut self, val: T) {
         if matches!(self.state, TaskState::Ready) {
             panic!("tried to inject return value while task was TaskState::Ready")
         }
@@ -298,9 +306,17 @@ impl Kernel {
             .map(|(i, _)| unsafe { Tid::from_raw(i) })
     }
 
-    fn syscall_yield(&mut self, _stack: &mut UserStack) {}
+    fn syscall_yield(&mut self, _stack: &mut UserStack) {
+        self.r#yield()
+    }
+
+    fn r#yield(&mut self) {}
 
     fn syscall_exit(&mut self, _stack: &mut UserStack) {
+        self.exit();
+    }
+
+    fn exit(&mut self) {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
         let task = self.tasks[current_tid.raw()].as_mut().unwrap();
@@ -315,7 +331,7 @@ impl Kernel {
                 };
 
                 // SRR could not be completed, return -2 to the sender
-                task.inject_return_value(-2 as _);
+                task.inject_return_value(abi::syscall::error::Send::CouldNotSSR);
                 task.state = TaskState::Ready;
                 self.ready_queue
                     .push(ReadyQueueItem {
@@ -336,31 +352,41 @@ impl Kernel {
     }
 
     fn syscall_my_tid(&mut self, stack: &mut UserStack) {
-        let current_tid =
-            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
+        let ret = self.my_tid().raw();
+        stack.inject_return_value(ret)
+    }
 
-        stack.inject_return_value(current_tid.raw())
+    fn my_tid(&mut self) -> Tid {
+        (self.current_tid).expect("called exec_syscall while `current_tid == None`")
     }
 
     fn syscall_my_parent_tid(&mut self, stack: &mut UserStack) {
+        let ret = match self.my_parent_tid() {
+            Ok(tid) => tid.raw() as isize,
+            Err(code) => code as isize,
+        };
+
+        stack.inject_return_value(ret)
+    }
+
+    fn my_parent_tid(&mut self) -> Result<Tid, abi::syscall::error::MyParentTid> {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
 
-        let ret = self.tasks[current_tid.raw()]
+        self.tasks[current_tid.raw()]
             .as_ref()
-            .map(|t| t.parent_tid)
-            .flatten()
-            .map(|tid| tid.raw() as isize)
-            .unwrap_or(-1); // implementation dependent
-
-        stack.inject_return_value(ret as usize)
+            .unwrap()
+            .parent_tid
+            .ok_or(abi::syscall::error::MyParentTid::NoParent)
     }
 
     fn create_task(
         &mut self,
         priority: isize,
         function: Option<extern "C" fn()>,
-    ) -> Result<Tid, isize> {
+    ) -> Result<Tid, abi::syscall::error::Create> {
+        use abi::syscall::error::Create as Error;
+
         let function = match function {
             Some(f) => f,
             // TODO? make this an error code?
@@ -369,10 +395,10 @@ impl Kernel {
 
         // this is an artificial limitation, but it could come in handy in the future.
         if priority < 0 {
-            return Err(-1);
+            return Err(Error::InvalidPriority);
         }
 
-        let tid = self.get_free_tid().ok_or(-2_isize)?;
+        let tid = self.get_free_tid().ok_or(Error::OutOfTaskDescriptors)?;
 
         // set up a fresh stack for the new task. This requires some unsafe,
         // low-level shenanigans.
@@ -428,10 +454,10 @@ impl Kernel {
 
         let ret = match self.create_task(priority, function) {
             Ok(tid) => tid.raw() as isize,
-            Err(code) => code,
+            Err(code) => code as isize,
         };
 
-        stack.inject_return_value(ret as _);
+        stack.inject_return_value(ret);
     }
 
     fn syscall_reply(&mut self, stack: &mut UserStack) {
@@ -451,7 +477,7 @@ impl Kernel {
             Err(code) => code as usize,
         };
 
-        stack.inject_return_value(ret as _)
+        stack.inject_return_value(ret)
     }
 
     fn syscall_recieve(&mut self, stack: &mut UserStack) {
@@ -472,12 +498,9 @@ impl Kernel {
             unsafe { user_slice::from_raw_parts_mut(ptr::NonNull::new_unchecked(msg_ptr), msg_len) }
         };
 
-        let ret = match self.recieve(sender_tid_dst, msg) {
-            Ok(response_len) => response_len,
-            Err(code) => code as usize,
+        if let Some(response_len) = self.recieve(sender_tid_dst, msg) {
+            stack.inject_return_value(response_len)
         };
-
-        stack.inject_return_value(ret as _)
     }
 
     fn syscall_send(&mut self, stack: &mut UserStack) {
@@ -503,8 +526,8 @@ impl Kernel {
         };
 
         match self.send(receiver_tid, msg, reply) {
-            Ok(_) => {} // value in injected as part of the `Reply` syscall
-            Err(code) => stack.inject_return_value(code as _),
+            Ok(()) => {} // return value injected as part of the `Reply` syscall
+            Err(code) => stack.inject_return_value(code),
         };
     }
 
@@ -513,7 +536,9 @@ impl Kernel {
         receiver_tid: Tid,
         msg: UserSlice<u8>,
         reply: UserSliceMut<u8>,
-    ) -> Result<(), isize> {
+    ) -> Result<(), abi::syscall::error::Send> {
+        use abi::syscall::error::Send as Error;
+
         // ensure that the receiver exists
         if !self
             .tasks
@@ -521,7 +546,7 @@ impl Kernel {
             .map(Option::is_some)
             .unwrap_or(false)
         {
-            return Err(-1);
+            return Err(Error::TidDoesNotExist);
         }
 
         let sender_tid =
@@ -611,7 +636,7 @@ impl Kernel {
         &mut self,
         sender_tid_dst: Option<ptr::NonNull<Tid>>,
         mut msg_dst: UserSliceMut<u8>,
-    ) -> Result<usize, isize> {
+    ) -> Option<usize> {
         let receiver_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
         let receiver = self.tasks[receiver_tid.raw()].as_mut().unwrap();
@@ -630,8 +655,8 @@ impl Kernel {
                     sender_tid_dst,
                     recv_dst: msg_dst,
                 };
-                // this will be overwritten when a sender shows up
-                return Err(-3);
+                // return value written later, as part of the send syscall
+                return None;
             }
         };
 
@@ -670,20 +695,26 @@ impl Kernel {
             Some(_) => assert!(receiver.send_queue_tail.is_some()),
         }
 
-        Ok(msg_len)
+        Some(msg_len)
     }
 
-    fn reply(&mut self, tid: Tid, reply: UserSlice<u8>) -> Result<usize, isize> {
+    fn reply(
+        &mut self,
+        tid: Tid,
+        reply: UserSlice<u8>,
+    ) -> Result<usize, abi::syscall::error::Reply> {
+        use abi::syscall::error::Reply as Error;
+
         let receiver = self
             .tasks
             .get_mut(tid.raw())
-            .ok_or(-1_isize)?
+            .ok_or(Error::TidDoesNotExist)?
             .as_mut()
-            .ok_or(-1_isize)?;
+            .ok_or(Error::TidDoesNotExist)?;
 
         let mut reply_dst = match receiver.state {
             TaskState::ReplyWait { reply_dst } => reply_dst,
-            _ => return Err(-2),
+            _ => return Err(Error::TidIsNotReplyBlocked),
         };
 
         let msg_len = reply_dst.len().min(reply.len());

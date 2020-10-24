@@ -32,7 +32,7 @@ mod raw {
     // Ensure that the type signatures match those defined in `choochoos_abi`
     mod abi_assert {
         use super::*;
-        use choochoos_abi::syscall::signatures as sig;
+        use choochoos_abi::syscall::signature as sig;
 
         const _: sig::Yield = __Yield;
         const _: sig::Exit = __Exit;

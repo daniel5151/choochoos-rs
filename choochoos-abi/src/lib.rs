@@ -63,8 +63,9 @@ pub mod syscall {
     }
 
     /// Function signatures associated with each syscall.
-    #[allow(missing_docs)]
-    pub mod signatures {
+    pub mod signature {
+        #![allow(missing_docs)]
+
         use crate::Tid;
 
         pub type Yield = unsafe extern "C" fn();
@@ -83,5 +84,54 @@ pub mod syscall {
         pub type Receive =
             unsafe extern "C" fn(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize;
         pub type Reply = unsafe extern "C" fn(tid: Tid, reply: *const u8, rplen: usize) -> isize;
+    }
+
+    /// Errors associated with various syscalls.
+    pub mod error {
+        /// Errors returned by the `MyParentTid` syscall
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+        #[repr(isize)]
+        pub enum MyParentTid {
+            /// Task does not have a parent.
+            NoParent = -1,
+        }
+
+        /// Errors returned by the `Create` syscall
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+        #[repr(isize)]
+        pub enum Create {
+            /// Tried to create a task with an invalid priority.
+            InvalidPriority      = -1,
+            /// The Kernel has run out of task descriptors.
+            OutOfTaskDescriptors = -2,
+        }
+
+        /// Errors returned by the `Send` syscall.
+        ///
+        /// Note that a Truncation error will _not_ return an error code, and
+        /// must be inferred by checking the length of message returned by the
+        /// syscall compared to the expected length.
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+        #[repr(isize)]
+        pub enum Send {
+            /// `tid` is not the task id of an existing task.
+            TidDoesNotExist = -1,
+            /// The send-receive-reply transaction could not be completed.
+            CouldNotSSR     = -2,
+        }
+
+        /// Errors returned by the `Reply` syscall.
+        ///
+        /// Note that a Truncation error will _not_ return an error code, and
+        /// must be inferred by checking the length of message returned by the
+        /// syscall compared to the expected length.
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+        #[repr(isize)]
+        pub enum Reply {
+            /// `tid` is not the task id of an existing task.
+            TidDoesNotExist      = -1,
+            /// `tid` is not the task id of a reply-blocked task.
+            TidIsNotReplyBlocked = -2,
+        }
     }
 }
