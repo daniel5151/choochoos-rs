@@ -22,7 +22,7 @@ pub unsafe fn fresh_stack(
     #[cfg(feature = "legacy-implicit-exit")]
     {
         unsafe extern "C" fn _implicit_exit() {
-            llvm_asm!("swi #1")
+            asm!("swi #1")
         }
         stackview.lr = _implicit_exit as usize;
     }

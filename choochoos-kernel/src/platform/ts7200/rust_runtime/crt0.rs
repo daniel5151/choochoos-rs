@@ -12,8 +12,11 @@ extern "C" {
 unsafe extern "C" fn _start() -> isize {
     // save the return address on the stack, as super::REDBOOT_RETURN_ADDRESS
     // might be placed in .bss, which is cleared later on in this function!
-    let redboot_return_address: *const c_void;
-    llvm_asm!("mov $0, lr" : "=r" (redboot_return_address) ::: "volatile");
+    let mut redboot_return_address: *const c_void;
+    asm!(
+        "mov {}, lr",
+        out(reg) redboot_return_address
+    );
 
     // zero bss
     let mut bss_start = &mut __BSS_START__ as *mut _ as *mut u8;

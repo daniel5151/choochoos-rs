@@ -24,12 +24,10 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // exit to RedBoot
     unsafe {
-        llvm_asm!("mov r0, #1
-              mov pc, $0"
-            : // no outputs
-            : "r" (super::REDBOOT_RETURN_ADDRESS)
-            : "r0"
-            : "volatile");
+        asm!(
+            "mov pc, {}",
+            in(reg) super::REDBOOT_RETURN_ADDRESS,
+        );
     }
 
     loop {}
