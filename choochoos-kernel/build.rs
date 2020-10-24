@@ -7,7 +7,13 @@ fn main() {
     // assemble and link assembly routines
 
     let as_result = Command::new("arm-none-eabi-as")
-        .args(&["-g", "-o", &(out_dir.clone() + "/asm.o"), "src/asm.s"])
+        .args(&[
+            "-g",
+            "-o",
+            &(out_dir.clone() + "/asm.o"),
+            "src/kernel/arch/arm/asm.s",
+            "src/platform/ts7200/asm.s",
+        ])
         .status()
         .unwrap();
     let ar_result = Command::new("arm-none-eabi-ar")
@@ -25,7 +31,9 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", out_dir);
     println!("cargo:rustc-link-lib=static=asm");
-    println!("cargo:rerun-if-changed=src/asm.s");
+
+    println!("cargo:rerun-if-changed=src/kernel/arch/arm/asm.s");
+    println!("cargo:rerun-if-changed=src/platform/ts7200/asm.s");
 
     // link with pre-compiled userspace (bin/libuserspace.a)
 

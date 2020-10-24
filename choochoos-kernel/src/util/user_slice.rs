@@ -3,6 +3,10 @@
 //! `UserSlice<T>` and `UserSliceMut<T>` are basically identical to `&[T]` and
 //! `&mut [T]`, except they are `Copy` and `Clone` as well.
 
+// NOTE: at some point, this module might require `arch` or `platform` specific
+// logic. At that point, it should be moved out of `util`, and into an
+// appropriate folder.
+
 use core::ptr;
 
 /// A `&[T]` which points into userspace.

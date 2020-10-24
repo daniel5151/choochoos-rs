@@ -11,13 +11,13 @@ macro_rules! kdebug {
         #[allow(unused_unsafe)]
         {
             use core::fmt::Write;
-            ts7200::util::BusyWaitLogger
+            crate::platform::bwprint::BusyWaitLogger
                 .write_fmt(format_args!(
                     // foreground color = yellow
                     concat!("\x1b[33m", "[kdebug][{}:{}][tid={}] ", "\x1b[0m", $fmt, "\n\r"),
                     file!(),
                     line!(),
-                    match $crate::kernel::KERNEL {
+                    match $crate::KERNEL {
                         Some(ref kernel) => {
                             kernel.current_tid()
                                 .map(|t| t.raw() as isize)
@@ -39,7 +39,7 @@ macro_rules! kprintln {
     () => { kprintln!("") };
     ($fmt:literal) => { kprintln!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
-        bwprintln!($fmt, $($arg)*)
+        crate::platform::bwprint::bwprintln!($fmt, $($arg)*)
     }};
 }
 
@@ -50,6 +50,6 @@ macro_rules! kprint {
     () => { kprint!("") };
     ($fmt:literal) => { kprint!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {
-        bwprint!($fmt, $($arg)*)
+        crate::platform::bwprint::bwprint!($fmt, $($arg)*)
     };
 }

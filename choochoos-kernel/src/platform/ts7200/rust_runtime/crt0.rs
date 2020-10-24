@@ -24,9 +24,14 @@ unsafe extern "C" fn _start() -> isize {
     }
 
     #[cfg(feature = "heap")]
-    super::heap::ALLOCATOR.init(&mut __HEAP_START__ as *mut _ as usize, __HEAP_SIZE__);
+    crate::heap::ALLOCATOR.init(&mut __HEAP_START__ as *mut _ as usize, __HEAP_SIZE__);
 
     super::REDBOOT_RETURN_ADDRESS = redboot_return_address;
+
+    // HACK: UART init really aught to be done in userspace!
+    use ts7200::hw::uart;
+    let mut term_uart = uart::Uart::new(uart::Channel::COM2);
+    term_uart.set_fifo(false);
 
     crate::main()
 }

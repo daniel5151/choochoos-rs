@@ -7,16 +7,27 @@
 #[macro_use]
 extern crate alloc;
 
-extern crate ts7200;
-
 #[macro_use]
 mod kernel_log;
 
-mod boilerplate;
-mod kernel;
-mod user_slice;
+#[cfg(feature = "heap")]
+mod heap;
 
-// called from `_start`. See `boilerplate/crt0.rs`
+mod kernel;
+mod platform;
+mod util;
+
+/// There can be only one kernel.
+///
+/// We use an Option to represent the initial "uninitialized" state, which is
+/// later initialized via the `Kernel::init` method.
+///
+/// This could potentially be replaced with a UnsafeCell<MaybeUninit<Kernel>>,
+/// but this approach is fine for now.
+static mut KERNEL: Option<kernel::Kernel> = None;
+
+// called from `_start`. See `src/platform/<platform>/rust_runtime/crt0.rs`
 fn main() -> isize {
-    unsafe { kernel::Kernel::init() }.run()
+    unsafe { kernel::Kernel::init() }.run();
+    0
 }

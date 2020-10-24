@@ -5,17 +5,29 @@ authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
 [features]
-default = []
+default = ["platform-ts7200"]
+
+# core kernel features
 heap = ["linked_list_allocator"]
 kdebug = []
+
+# platform support
+platform-ts7200 = ["ts7200"]
+
+# hax
 legacy-implicit-exit = []
 
 [dependencies]
-choochoos-abi = { path = "../choochoos-abi" }
-ts7200 = { path = "../ts7200" }
+abi = { package = "choochoos-abi", path = "../choochoos-abi" }
+
+# ==== Common Dependencies ==== #
 
 # armv4t doesn't support atomic operations, so the "cas" feature must be disabled
 heapless = { version = "0.5", default-features = false }
 owo-colors = "1.1"
-
 linked_list_allocator = { version =  "0.8", default-features = false, optional = true }
+
+# ==== Platform Specific Dependencies ==== #
+
+# platform-ts7200
+ts7200 = { path = "../ts7200", optional = true }
