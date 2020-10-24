@@ -14,6 +14,7 @@ mod kernel_log;
 
 mod boilerplate;
 mod kernel;
+mod user_slice;
 
 // called from `_start`. See `boilerplate/crt0.rs`
 fn main() -> isize {
