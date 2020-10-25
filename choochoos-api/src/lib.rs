@@ -2,6 +2,7 @@
 
 #![no_std]
 #![deny(missing_docs)]
+#![feature(asm, naked_functions)]
 
 use core::num::NonZeroUsize;
 
@@ -9,25 +10,38 @@ pub use choochoos_abi as abi;
 
 use abi::Tid;
 
+#[allow(non_snake_case, unused_variables)]
 mod raw {
     use super::abi::Tid;
 
-    extern "C" {
-        pub fn __Yield();
-        pub fn __Exit();
-        pub fn __MyTid() -> isize;
-        pub fn __MyParentTid() -> isize;
-        pub fn __Create(priority: isize, function: Option<extern "C" fn()>) -> isize;
-        pub fn __Send(
+    macro_rules! raw_syscall {
+        ($no:literal => $($sig:tt)*) => {
+            #[naked]
+            #[inline(never)]
+            pub unsafe extern "C" $($sig)* {
+                asm! {
+                    concat!("swi #", stringify!($no)),
+                    "bx lr",
+                }
+                unreachable!()
+            }
+        };
+    }
+
+    raw_syscall!(0 => fn __Yield());
+    raw_syscall!(1 => fn __Exit());
+    raw_syscall!(2 => fn __MyTid() -> isize);
+    raw_syscall!(3 => fn __MyParentTid() -> isize);
+    raw_syscall!(4 => fn __Create(priority: isize, function: Option<extern "C" fn()>) -> isize);
+    raw_syscall!(5 => fn __Send(
             tid: Tid,
             msg: *const u8,
             msglen: usize,
             reply: *mut u8,
             rplen: usize,
-        ) -> isize;
-        pub fn __Receive(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize;
-        pub fn __Reply(tid: Tid, reply: *const u8, rplen: usize) -> isize;
-    }
+        ) -> isize);
+    raw_syscall!(6 => fn __Receive(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize);
+    raw_syscall!(7 => fn __Reply(tid: Tid, reply: *const u8, rplen: usize) -> isize);
 
     // Ensure that the type signatures match those defined in `choochoos_abi`
     mod abi_assert {

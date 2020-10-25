@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(asm)] // TODO: move all asm to separate .asm file?
+#![feature(asm, naked_functions)]
 #![cfg_attr(feature = "heap", feature(alloc_error_handler))]
 
 #[cfg(feature = "heap")]

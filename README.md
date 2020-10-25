@@ -4,8 +4,11 @@ _A safer CS 452 OS_
 
 ## Building
 
-Building choochoo-rs requires using a nightly version of the Rust compiler and
-the `arm-non-eabi` toolchain.
+Building choochoo-rs requires using a nightly version of the Rust compiler.
+
+Notably, is does _not_ rely on any external `arm-none-eabi` toolchains, instead
+writing all low-level assembly routines using `#[naked]` functions and the
+inline `asm!` macro.
 
 ### Initial Setup
 

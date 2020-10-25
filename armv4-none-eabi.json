@@ -15,9 +15,8 @@
   "env": "gnu",
   "executables": true,
   "features": "+soft-float,+strict-align",
-  "linker": "arm-none-eabi-ld",
+  "linker": "ld.lld",
   "linker-flavor": "ld",
-  "linker-is-gnu": true,
   "llvm-target": "armv4-none-eabi",
   "os": "none",
   "panic-strategy": "abort",
@@ -25,7 +24,7 @@
     "ld": ["-Tts7200_redboot.ld", "-nmagic", "--gc-sections"]
   },
   "post-link-args": {
-    "ld": ["-Map=target/choochoos.map", "-no-print-map-discarded"]
+    "ld": ["-Map=target/choochoos.map"]
   },
   "position-independent-executables": true,
   "relocation-model": "static",

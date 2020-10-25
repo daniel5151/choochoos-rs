@@ -94,7 +94,7 @@ impl Kernel {
             // activate the task
             self.current_tid = Some(tid);
             let sp = self.tasks[tid.raw()].as_mut().unwrap().sp;
-            let next_sp = unsafe { arch::_activate_task(sp) };
+            let next_sp = unsafe { arch::_activate_task(sp.as_ptr() as _) };
             self.current_tid = None;
 
             // there's a chance that the task was exited / destroyed

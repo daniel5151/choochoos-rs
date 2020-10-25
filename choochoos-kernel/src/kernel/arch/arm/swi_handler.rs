@@ -112,8 +112,7 @@ fn dispatch_send(kernel: &mut Kernel, stack: &mut UserStack) {
 }
 
 /// Called by the _swi_handler assembly routine
-#[no_mangle]
-unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
+pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
     let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
     let stack = sp.as_mut();
 
@@ -136,9 +135,4 @@ unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
         SyscallNo::Reply => dispatch_reply(kernel, stack),
         other => panic!("unimplemented syscall: {:?}", other),
     };
-}
-
-extern "C" {
-    // implemented in asm.s
-    pub fn _swi_handler();
 }
