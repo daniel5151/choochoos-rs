@@ -1,8 +1,10 @@
 [workspace]
 members = [
     "choochoos-abi",
+    "choochoos-platform-ts7200",
     "choochoos-api",
     "choochoos-kernel",
+
     "ts7200",
 
     "userspace/",
@@ -18,5 +20,6 @@ lto = true
 panic = "abort"
 
 [profile.dev]
+# opt-level = 1
 debug = true
 panic = "abort"

@@ -21,7 +21,7 @@ pub enum TaskState {
     ReplyWait {
         reply_dst: UserSliceMut<u8>,
     },
-    // EventWait,
+    EventWait,
 }
 
 pub struct TaskDescriptor {

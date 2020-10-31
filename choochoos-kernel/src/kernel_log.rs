@@ -9,7 +9,7 @@ macro_rules! kdebug {
     ($fmt:literal, $($arg:tt)*) => {
         #[cfg(feature = "kdebug")]
         #[allow(unused_unsafe)]
-        {
+        unsafe {
             use core::fmt::Write;
             crate::platform::bwprint::BusyWaitLogger
                 .write_fmt(format_args!(
@@ -28,6 +28,10 @@ macro_rules! kdebug {
                     $($arg)*
                 ))
                 .unwrap();
+        }
+        #[cfg(not(feature = "kdebug"))]
+        {
+            let _ = ($fmt, $($arg)*);
         }
     };
 }

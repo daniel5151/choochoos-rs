@@ -4,4 +4,5 @@
 
 pub mod constants;
 pub mod hw;
+pub mod interrupts;
 pub mod util;

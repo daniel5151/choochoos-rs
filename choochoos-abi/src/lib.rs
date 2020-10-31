@@ -1,10 +1,15 @@
 //! Types and structures exposed by the `choochoos` kernel.
+//!
+//! This crate is the "source of truth" for the choochoos kernel-userspace ABI,
+//! and ensures that both the kernel and userspace are using the same syscall
+//! numbers, signatures, errors, etc...
+//!
+//! The `choochoos` ABI is entirely `extern "C"`, and is 100% compatible with
+//! the [original C-based ABI](https://student.cs.uwaterloo.ca/~cs452/W20/assignments/kernel.html)
+//! used in CS 452 at the University of Waterloo.
 
 #![no_std]
 #![deny(missing_docs)]
-
-/// Function signature which can be spawned by the kernel.
-pub type TaskFn = extern "C" fn();
 
 /// Task descriptor handle.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
@@ -29,6 +34,16 @@ impl Tid {
 
 /// TID of automatically spawned nameserver.
 pub const NAMESERVER_TID: Tid = Tid(1);
+
+/// Container for various bits of kernel performance data returned as part of
+/// the `Perf` syscall.
+// TODO: rework this structure to not suck
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+#[repr(C)]
+pub struct PerfData {
+    /// A number from 0 - 100
+    pub idle_time_pct: u32,
+}
 
 /// Kernel syscall interface.
 pub mod syscall {
@@ -66,7 +81,7 @@ pub mod syscall {
     pub mod signature {
         #![allow(missing_docs)]
 
-        use crate::Tid;
+        use crate::{PerfData, Tid};
 
         pub type Yield = unsafe extern "C" fn();
         pub type Exit = unsafe extern "C" fn();
@@ -84,6 +99,8 @@ pub mod syscall {
         pub type Receive =
             unsafe extern "C" fn(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize;
         pub type Reply = unsafe extern "C" fn(tid: Tid, reply: *const u8, rplen: usize) -> isize;
+        pub type AwaitEvent = unsafe extern "C" fn(event_id: usize) -> isize;
+        pub type Perf = unsafe extern "C" fn(perf: *mut PerfData);
     }
 
     /// Errors associated with various syscalls.
@@ -132,6 +149,16 @@ pub mod syscall {
             TidDoesNotExist      = -1,
             /// `tid` is not the task id of a reply-blocked task.
             TidIsNotReplyBlocked = -2,
+        }
+
+        /// Errors returned by the `AwaitEvent` syscall.
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+        #[repr(isize)]
+        pub enum AwaitEvent {
+            /// Invalid event id.
+            InvalidEventId        = -1,
+            /// Corrupted volatile data.
+            CorruptedVolatileData = -2,
         }
     }
 }

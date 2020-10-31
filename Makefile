@@ -40,6 +40,7 @@ kernel:
 ifdef CUSTOM_USERSPACE
 	# HACK: this is a terrible kludgy solution, but I don't want to deal with build
 	# system stuff right now.
+	mkdir -p ./bin/
 	cp $(CUSTOM_USERSPACE) ./bin/
 endif
 

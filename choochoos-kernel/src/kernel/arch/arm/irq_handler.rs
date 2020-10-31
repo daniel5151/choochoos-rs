@@ -5,6 +5,5 @@ pub unsafe extern "C" fn handle_irq() {
         None => core::hint::unreachable_unchecked(),
     };
 
-    let _ = kernel;
-    // stubbed
+    kernel.handle_irq();
 }

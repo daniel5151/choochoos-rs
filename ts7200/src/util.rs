@@ -17,11 +17,13 @@ impl fmt::Write for BusyWaitLogger {
             COM2.as_mut().unwrap()
         };
 
-        for &b in s.as_bytes() {
-            if b == b'\n' {
-                uart.write_byte_blocking(b'\r');
+        unsafe {
+            for &b in s.as_bytes() {
+                if b == b'\n' {
+                    uart.write_byte_blocking(b'\r');
+                }
+                uart.write_byte_blocking(b);
             }
-            uart.write_byte_blocking(b);
         }
 
         Ok(())
@@ -32,8 +34,8 @@ impl fmt::Write for BusyWaitLogger {
 /// the ouptut.
 #[macro_export]
 macro_rules! bwprintln {
-    () => { bwprintln!("") };
-    ($fmt:literal) => { bwprintln!($fmt,) };
+    () => { $crate::bwprintln!("") };
+    ($fmt:literal) => { $crate::bwprintln!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
         $crate::util::BusyWaitLogger
@@ -45,8 +47,8 @@ macro_rules! bwprintln {
 /// Debug macro to dump output via COM2 using busy waiting.
 #[macro_export]
 macro_rules! bwprint {
-    () => { bwprint!("") };
-    ($fmt:literal) => { bwprint!($fmt,) };
+    () => { $crate::bwprint!("") };
+    ($fmt:literal) => { $crate::bwprint!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
         $crate::util::BusyWaitLogger

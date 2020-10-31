@@ -5,7 +5,7 @@ use abi::Tid;
 use crate::util::user_slice::{UserSlice, UserSliceMut};
 
 use super::task::{TaskDescriptor, TaskState};
-use super::{Kernel, ReadyQueueItem};
+use super::{EventQueueItem, Kernel, ReadyQueueItem};
 
 impl Kernel {
     pub fn syscall_yield(&mut self) {}
@@ -78,7 +78,14 @@ impl Kernel {
             return Err(Error::InvalidPriority);
         }
 
-        let tid = self.get_free_tid().ok_or(Error::OutOfTaskDescriptors)?;
+        // find first available none slot
+        let tid = self
+            .tasks
+            .iter()
+            .enumerate()
+            .find(|(_, t)| t.is_none())
+            .map(|(i, _)| unsafe { Tid::from_raw(i) })
+            .ok_or(Error::OutOfTaskDescriptors)?;
 
         // set up a fresh stack for the new task. This requires some unsafe,
         // arch-specific, low-level shenanigans.
@@ -314,5 +321,63 @@ impl Kernel {
             .expect("out of space on the ready queue");
 
         Ok(msg_len)
+    }
+
+    pub fn syscall_await_event(
+        &mut self,
+        event_id: usize,
+    ) -> Result<Option<usize>, abi::syscall::error::AwaitEvent> {
+        use abi::syscall::error::AwaitEvent as Error;
+
+        if !crate::platform::interrupts::validate_eventid(event_id) {
+            return Err(Error::InvalidEventId);
+        }
+
+        let current_tid =
+            (self.current_tid).expect("called exec_syscall while `current_tid == None`");
+        let task = self.tasks[current_tid.raw()].as_mut().unwrap();
+
+        if let Some(tid_or_volatile_data) = self.event_queue.remove(&event_id) {
+            match tid_or_volatile_data {
+                EventQueueItem::BlockedTid(tid) => {
+                    // TODO: support multiple tasks waiting on the same event?
+                    panic!(
+                        "AwaitEvent({}): {:?} is already waiting for this event",
+                        event_id, tid
+                    );
+                }
+                EventQueueItem::VolatileData(data) => {
+                    kdebug!(
+                        "AwaitEvent({}): data already arrived {:#x?}",
+                        event_id,
+                        data
+                    );
+
+                    return Ok(Some(data));
+                }
+            }
+        }
+
+        kdebug!(
+            "AwaitEvent({}): put {:?} on event_queue",
+            event_id,
+            current_tid
+        );
+        self.event_queue
+            .insert(event_id, EventQueueItem::BlockedTid(current_tid))
+            .expect("out of space on the event queue");
+
+        assert!(matches!(task.state, TaskState::Ready));
+        task.state = TaskState::EventWait;
+
+        Ok(None)
+    }
+
+    pub fn syscall_perf(&mut self, perf_data: Option<ptr::NonNull<abi::PerfData>>) {
+        if let Some(mut perf_data) = perf_data {
+            let perf_data = unsafe { perf_data.as_mut() };
+
+            perf_data.idle_time_pct = 0; // XXX: actually track idle time
+        }
     }
 }

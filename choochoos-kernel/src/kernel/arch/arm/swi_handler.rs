@@ -111,6 +111,30 @@ fn dispatch_send(kernel: &mut Kernel, stack: &mut UserStack) {
     };
 }
 
+fn dispatch_await_event(kernel: &mut Kernel, stack: &mut UserStack) {
+    let mut args = stack.args();
+    let event_id = unsafe { args.extract::<usize>() };
+
+    match kernel.syscall_await_event(event_id) {
+        Ok(None) => {} // return value will be injected once an IRQ occurs
+        Ok(Some(val)) => stack.inject_return_value(val),
+        Err(code) => stack.inject_return_value(code),
+    };
+}
+
+fn dispatch_perf(kernel: &mut Kernel, stack: &mut UserStack) {
+    let mut args = stack.args();
+    let perf_data = unsafe { args.extract::<*mut abi::PerfData>() };
+
+    let perf_data = if perf_data.is_null() {
+        None
+    } else {
+        unsafe { Some(ptr::NonNull::new_unchecked(perf_data)) }
+    };
+
+    kernel.syscall_perf(perf_data);
+}
+
 /// Called by the _swi_handler assembly routine
 pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
     let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
@@ -133,6 +157,9 @@ pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
         SyscallNo::Send => dispatch_send(kernel, stack),
         SyscallNo::Receive => dispatch_recieve(kernel, stack),
         SyscallNo::Reply => dispatch_reply(kernel, stack),
+        SyscallNo::AwaitEvent => dispatch_await_event(kernel, stack),
+        // custom extensions
+        SyscallNo::Perf => dispatch_perf(kernel, stack),
         other => panic!("unimplemented syscall: {:?}", other),
     };
 }

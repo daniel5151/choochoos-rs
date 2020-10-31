@@ -32,44 +32,59 @@ impl Uart {
     }
 
     /// Sets the FIFO enable bit
-    pub fn set_fifo(&mut self, state: bool) {
-        let line = (self.base + uart::LCRH_OFFSET) as *mut u32;
-        unsafe {
-            let mut buf = ptr::read_volatile(line);
-            buf = if state {
-                buf | uart::FEN_MASK
-            } else {
-                buf & !uart::FEN_MASK
-            };
-            ptr::write_volatile(line, buf);
-        }
+    ///
+    /// # Safety
+    ///
+    /// Accesses a global resource (the UART). This may put the UART into an
+    /// unexpected state, and result in spooky action at a distance.
+    pub unsafe fn set_fifo(&mut self, state: bool) {
+        let line = (self.base + uart::LCRH_OFFSET) as *mut u8;
+
+        let mut buf = ptr::read_volatile(line);
+        buf = if state {
+            buf | uart::FEN_MASK
+        } else {
+            buf & !uart::FEN_MASK
+        };
+        ptr::write_volatile(line as _, buf);
     }
 
     /// Reads a byte by busy-waiting until the UART receives data.
-    pub fn read_byte_blocking(&self) -> u8 {
-        let flags = (self.base + uart::FLAG_OFFSET) as *const u32;
-        let data = (self.base + uart::DATA_OFFSET) as *mut u32;
+    ///
+    /// # Safety
+    ///
+    /// Accesses a global resource (the UART). This may put the UART into an
+    /// unexpected state, and result in spooky action at a distance.
+    pub unsafe fn read_byte_blocking(&self) -> u8 {
+        let flags = (self.base + uart::FLAG_OFFSET) as *const u8;
+        let data = (self.base + uart::DATA_OFFSET) as *mut u8;
 
-        unsafe {
-            while ptr::read_volatile(flags) & uart::RXFF_MASK == 0 {}
-            ptr::read_volatile(data) as u8
-        }
+        while ptr::read_volatile(flags) & uart::RXFF_MASK == 0 {}
+        ptr::read_volatile(data) as u8
     }
 
     /// Writes a byte by busy-waiting until the UART is ready to accept data.
-    pub fn write_byte_blocking(&self, b: u8) {
-        let flags = (self.base + uart::FLAG_OFFSET) as *const u32;
-        let data = (self.base + uart::DATA_OFFSET) as *mut u32;
+    ///
+    /// # Safety
+    ///
+    /// Accesses a global resource (the UART). This may put the UART into an
+    /// unexpected state, and result in spooky action at a distance.
+    pub unsafe fn write_byte_blocking(&self, b: u8) {
+        let flags = (self.base + uart::FLAG_OFFSET) as *const u8;
+        let data = (self.base + uart::DATA_OFFSET) as *mut u8;
 
-        unsafe {
-            while ptr::read_volatile(flags) & uart::TXFF_MASK != 0 {}
-            ptr::write_volatile(data, b as u32);
-        }
+        while ptr::read_volatile(flags) & uart::TXFF_MASK != 0 {}
+        ptr::write_volatile(data, b);
     }
 
     /// Writes a string by busy-waiting until the UART has outputted the
     /// entirety string.
-    pub fn write_blocking(&self, buf: &[u8]) {
+    ///
+    /// # Safety
+    ///
+    /// Accesses a global resource (the UART). This may put the UART into an
+    /// unexpected state, and result in spooky action at a distance.
+    pub unsafe fn write_blocking(&self, buf: &[u8]) {
         for b in buf {
             self.write_byte_blocking(*b);
         }

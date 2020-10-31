@@ -1,4 +1,4 @@
-//! An idiomatic Rust API on-top of raw `choochoos` syscalls.
+//! An idiomatic Rust API on-top of the raw `choochoos` ABI.
 
 #![no_std]
 #![deny(missing_docs)]
@@ -6,13 +6,13 @@
 
 use core::num::NonZeroUsize;
 
-pub use choochoos_abi as abi;
+pub use abi;
 
 use abi::Tid;
 
 #[allow(non_snake_case, unused_variables)]
 mod raw {
-    use super::abi::Tid;
+    use super::abi::{PerfData, Tid};
 
     macro_rules! raw_syscall {
         ($no:literal => $($sig:tt)*) => {
@@ -42,11 +42,14 @@ mod raw {
         ) -> isize);
     raw_syscall!(6 => fn __Receive(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize);
     raw_syscall!(7 => fn __Reply(tid: Tid, reply: *const u8, rplen: usize) -> isize);
+    raw_syscall!(8 => fn __AwaitEvent(event_id: usize) -> isize);
+
+    raw_syscall!(9 => fn __Perf(perf: *mut PerfData));
 
     // Ensure that the type signatures match those defined in `choochoos_abi`
     mod abi_assert {
         use super::*;
-        use choochoos_abi::syscall::signature as sig;
+        use abi::syscall::signature as sig;
 
         const _: sig::Yield = __Yield;
         const _: sig::Exit = __Exit;
@@ -56,6 +59,9 @@ mod raw {
         const _: sig::Send = __Send;
         const _: sig::Receive = __Receive;
         const _: sig::Reply = __Reply;
+        const _: sig::AwaitEvent = __AwaitEvent;
+
+        const _: sig::Perf = __Perf;
     }
 }
 
@@ -63,7 +69,7 @@ mod raw {
 pub mod error {
     use core::num::NonZeroUsize;
 
-    /// Errors returned by the `Create` syscall
+    /// Errors returned by the `Create` syscall.
     #[derive(Debug)]
     pub enum Create {
         /// Tried to create a task with an invalid priority.
@@ -72,7 +78,7 @@ pub mod error {
         OutOfTaskDescriptors,
     }
 
-    /// Errors returned by the `Send` syscall
+    /// Errors returned by the `Send` syscall.
     #[derive(Debug)]
     pub enum Send {
         /// `tid` is not the task id of an existing task.
@@ -84,7 +90,7 @@ pub mod error {
         Truncated(NonZeroUsize),
     }
 
-    /// Errors returned by the `Receive` syscall
+    /// Errors returned by the `Receive` syscall.
     #[derive(Debug)]
     pub enum Receive {
         /// The message was truncated. `usize` corresponds to the length of the
@@ -92,7 +98,7 @@ pub mod error {
         Truncated(NonZeroUsize),
     }
 
-    /// Errors returned by the `Reply` syscall
+    /// Errors returned by the `Reply` syscall.
     #[derive(Debug)]
     pub enum Reply {
         /// `tid` is not the task id of an existing task.
@@ -102,6 +108,15 @@ pub mod error {
         /// The reply was truncated. `usize` corresponds to the number of bytes
         /// successfully written.
         Truncated(NonZeroUsize),
+    }
+
+    /// Errors returned by the `AwaitEvent` syscall.
+    #[derive(Debug)]
+    pub enum AwaitEvent {
+        /// Invalid event id.
+        InvalidEventId,
+        /// Corrupted volatile data.
+        CorruptedVolatileData,
     }
 }
 
@@ -154,7 +169,7 @@ pub fn create(priority: usize, function: extern "C" fn()) -> Result<Tid, error::
         e if ret < 0 => match e {
             -1 => Err(error::Create::InvalidPriority),
             -2 => Err(error::Create::OutOfTaskDescriptors),
-            _ => panic!("unexpected create error: {}", e),
+            _ => panic!("unexpected Create error: {}", e),
         },
         // SAFETY: tid is guaranteed to be greater than zero
         tid => Ok(unsafe { Tid::from_raw(tid as usize) }),
@@ -193,7 +208,7 @@ pub fn send(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Send
         e if ret < 0 => match e {
             -1 => Err(error::Send::TidDoesNotExist),
             -2 => Err(error::Send::CouldNotSSR),
-            _ => panic!("unexpected send error: {}", e),
+            _ => panic!("unexpected Send error: {}", e),
         },
         rplen => {
             let rplen = rplen as usize;
@@ -221,7 +236,7 @@ pub fn receive(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
     let mut tid = unsafe { Tid::from_raw(0) };
     let ret = unsafe { raw::__Receive(&mut tid, msg.as_mut_ptr(), msg.len()) };
     match ret {
-        e if ret < 0 => panic!("unexpected receive error: {}", e),
+        e if ret < 0 => panic!("unexpected Receive error: {}", e),
         msglen => {
             let msglen = msglen as usize;
             if msglen > msg.len() {
@@ -250,7 +265,7 @@ pub fn reply(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
         e if ret < 0 => match e {
             -1 => Err(error::Reply::TidDoesNotExist),
             -2 => Err(error::Reply::TidIsNotReplyBlocked),
-            _ => panic!("unexpected send error: {}", e),
+            _ => panic!("unexpected Reply error: {}", e),
         },
         rplen => {
             let rplen = rplen as usize;
@@ -262,6 +277,31 @@ pub fn reply(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
                 Ok(rplen)
             }
         }
+    }
+}
+
+/// Blocks until the event identified by event_id occurs, then returns with
+/// volatile data (if applicable).
+///
+/// Valid `event_id` numbers vary based on target platform.
+pub fn await_event(event_id: usize) -> Result<usize, error::AwaitEvent> {
+    let ret = unsafe { raw::__AwaitEvent(event_id) };
+    match ret {
+        e if ret < 0 => match e {
+            -1 => Err(error::AwaitEvent::InvalidEventId),
+            -2 => Err(error::AwaitEvent::CorruptedVolatileData),
+            _ => panic!("unexpected AwaitEvent error: {}", e),
+        },
+        volatile => Ok(volatile as usize),
+    }
+}
+
+/// (custom ext) Return Kernel performance data (e.g: idle time).
+pub fn perf() -> abi::PerfData {
+    unsafe {
+        let mut perf_data = core::mem::MaybeUninit::<abi::PerfData>::uninit();
+        raw::__Perf(perf_data.as_mut_ptr());
+        perf_data.assume_init()
     }
 }
 
