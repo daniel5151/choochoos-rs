@@ -9,6 +9,7 @@ members = [
 
     "userspace/",
     "userspace/shared/nameserver",
+    "userspace/shared/nameserver-api",
     "userspace/distros/k1",
     "userspace/distros/k2",
 ]

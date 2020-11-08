@@ -131,8 +131,16 @@ name = "nameserver"
 version = "0.1.0"
 dependencies = [
  "choochoos-api",
+ "nameserver-api",
  "owo-colors",
  "ts7200",
+]
+
+[[package]]
+name = "nameserver-api"
+version = "0.1.0"
+dependencies = [
+ "choochoos-api",
 ]
 
 [[package]]
