@@ -1,3 +1,5 @@
+//! Syscall handler implementations. See the [`Kernel`] docs.
+
 use core::ptr;
 
 use abi::Tid;
@@ -7,6 +9,7 @@ use crate::util::user_slice::{UserSlice, UserSliceMut};
 use super::task::{TaskDescriptor, TaskState};
 use super::{EventQueueItem, Kernel, ReadyQueueItem};
 
+/// Syscall handler implementations.
 impl Kernel {
     pub fn syscall_yield(&mut self) {}
 
@@ -102,7 +105,7 @@ impl Kernel {
             let start_of_stack =
                 (&__USER_STACKS_START__ as *const _ as usize) + (USER_STACK_SIZE * (tid.raw() + 1));
 
-            super::arch::create_task::fresh_stack(start_of_stack, function)
+            super::arch::fresh_stack(start_of_stack, function)
         };
 
         // create the new task descriptor

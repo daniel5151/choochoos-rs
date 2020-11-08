@@ -135,7 +135,8 @@ fn dispatch_perf(kernel: &mut Kernel, stack: &mut UserStack) {
     kernel.syscall_perf(perf_data);
 }
 
-/// Called by the _swi_handler assembly routine
+/// Called by the [`_swi_handler`](super::ctx_switch::_swi_handler) assembly
+/// routine.
 pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
     let mut sp = ptr::NonNull::new(sp).expect("passed null sp to handle_syscall");
     let stack = sp.as_mut();

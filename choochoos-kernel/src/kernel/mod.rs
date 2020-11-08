@@ -11,7 +11,9 @@ pub mod task;
 
 use task::{TaskDescriptor, TaskState};
 
-/// Implements `Ord` by priority
+/// A pair of `Tid` and it's `priority`.
+///
+/// Implements [`Ord`] using the `priority` field.
 #[derive(Debug, Eq, PartialEq)]
 struct ReadyQueueItem {
     pub priority: isize,
@@ -30,6 +32,8 @@ impl Ord for ReadyQueueItem {
     }
 }
 
+/// Either the Tid of a Task waiting for an Event, or some VolatileData from an
+/// interrupt that no Task was waiting for.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 enum EventQueueItem {
     BlockedTid(Tid),
@@ -116,7 +120,7 @@ impl Kernel {
             // activate the task
             self.current_tid = Some(tid);
             let sp = self.tasks[tid.raw()].as_mut().unwrap().sp;
-            let next_sp = unsafe { arch::_activate_task(sp.as_ptr() as _) };
+            let next_sp = unsafe { arch::_activate_task(sp) };
             self.current_tid = None;
 
             // there's a chance that the task was exited / destroyed

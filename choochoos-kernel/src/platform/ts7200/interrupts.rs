@@ -1,3 +1,5 @@
+//! Interrupt Service Routines
+
 use core::ptr;
 
 use bit_field::BitField;
@@ -68,6 +70,8 @@ unsafe fn service_uart(base_addr: u32) -> usize {
     ret as _
 }
 
+/// Service a pending interrupt and return it's corresponding EventId and
+/// volatile data.
 unsafe fn service_interrupt(vic_idx: u8) -> (EventId, usize) {
     let interrupt = match Interrupt::from_overall_idx(vic_idx) {
         Some(interrupt) => interrupt,
@@ -88,11 +92,17 @@ unsafe fn service_interrupt(vic_idx: u8) -> (EventId, usize) {
 
 // ---------------------------- public interface ---------------------------- //
 
+/// Check if the `event_id` corresponds to a valid TS-7200 interrupt.
 pub fn validate_eventid(event_id: usize) -> bool {
     EventId::from_raw(event_id).is_some()
 }
 
-pub unsafe fn handle_irq(mut handle_interrupt: impl FnMut(usize, usize)) {
+/// Handle any pending interrupts.
+///
+/// Called from [`Kernel::handle_irq`](crate::kernel::Kernel::handle_irq).
+pub unsafe fn handle_irq(
+    mut interrupt_handled: impl FnMut(/* event_id: */ usize, /* volatile_data: */ usize),
+) {
     use ts7200::constants::vic;
 
     let vic1_bits = ptr::read_volatile((vic::VIC1_BASE + vic::IRQ_STATUS_OFFSET) as *mut u32);
@@ -101,13 +111,13 @@ pub unsafe fn handle_irq(mut handle_interrupt: impl FnMut(usize, usize)) {
     for i in 0..32 {
         if vic1_bits & (1 << i) != 0 {
             let (event_id, volatile_data) = service_interrupt(i);
-            handle_interrupt(event_id.raw(), volatile_data);
+            interrupt_handled(event_id.raw(), volatile_data);
         }
     }
     for i in 0..32 {
         if vic2_bits & (1 << i) != 0 {
             let (event_id, volatile_data) = service_interrupt(32 + i);
-            handle_interrupt(event_id.raw(), volatile_data);
+            interrupt_handled(event_id.raw(), volatile_data);
         }
     }
 }

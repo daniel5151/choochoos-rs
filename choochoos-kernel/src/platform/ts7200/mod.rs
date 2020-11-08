@@ -57,7 +57,12 @@ pub unsafe fn initialize() {
 }
 
 pub unsafe fn teardown() {
-    ts7200::bwprintln!("[WARNING] ts7200 teardown isn't implemented!");
+    use owo_colors::OwoColorize;
+    ts7200::bwprintln!(
+        "{}",
+        "WARNING: ts7200 teardown isn't implemented, real hardware may require a hard reset!"
+            .yellow()
+    );
 }
 
 pub unsafe fn idle_task() -> Duration {

@@ -1,7 +1,11 @@
+//! Kernel logging macros.
+//!
 //! TODO: use an in-memory buffer for the kernel log instead of immediately
 //! dumping via the BusyWaitLogger
 
 // TODO: hook into `log` crate
+/// Logs messages when the `kdebug` feature is enabled.
+#[doc(cfg(feature = "kdebug"))]
 #[macro_export]
 macro_rules! kdebug {
     () => { kdebug!("") };

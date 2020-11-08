@@ -1,4 +1,5 @@
-//! Low-level abstractions over the TS-7200's hardware.
+//! Hardware definitions and basic abstractions for the TS-7200 Single Board
+//! Computer.
 
 #![no_std]
 

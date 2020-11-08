@@ -49,6 +49,10 @@ endif
 		--manifest-path choochoos-kernel/Cargo.toml \
 		--features "$(CARGO_KERNEL_FEATURES)"
 
+.PHONY: doc
+doc:
+	cargo doc --no-deps --document-private-items --all-features
+
 clean:
 	rm -rf ./bin/
 	cargo clean

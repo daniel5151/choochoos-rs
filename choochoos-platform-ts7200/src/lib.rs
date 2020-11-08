@@ -5,7 +5,7 @@
 
 pub use ts7200::interrupts::Interrupt;
 
-/// TS-7200 specific EventIds
+/// TS-7200 specific EventId - used by the `AwaitEvent` syscall.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
 pub struct EventId {
     /// The TS7200 only has 64 VIC interrupt sources, and fortunately, source 0

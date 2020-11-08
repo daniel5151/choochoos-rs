@@ -5,7 +5,7 @@ authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-choochoos-api = { path = "../../../choochoos-api" }
+sys = { package = "choochoos-api", path = "../../../choochoos-api" }
 ts7200 = { path = "../../../ts7200" }
 
 owo-colors = "1.1"

@@ -1,13 +1,6 @@
 use core::ffi::c_void;
 
-// provided by the linker
-extern "C" {
-    static mut __BSS_START__: c_void;
-    static mut __BSS_END__: c_void;
-    static mut __HEAP_START__: c_void;
-    static mut __HEAP_SIZE__: usize;
-}
-
+/// The first function called by the bootloader.
 #[no_mangle]
 unsafe extern "C" fn _start() -> isize {
     // save the return address on the stack, as super::REDBOOT_RETURN_ADDRESS
@@ -17,6 +10,14 @@ unsafe extern "C" fn _start() -> isize {
         "mov {}, lr",
         out(reg) redboot_return_address
     );
+
+    // provided by the linker
+    extern "C" {
+        static mut __BSS_START__: c_void;
+        static mut __BSS_END__: c_void;
+        static mut __HEAP_START__: c_void;
+        static mut __HEAP_SIZE__: usize;
+    }
 
     // zero bss
     let mut bss_start = &mut __BSS_START__ as *mut _ as *mut u8;
@@ -32,6 +33,7 @@ unsafe extern "C" fn _start() -> isize {
     super::REDBOOT_RETURN_ADDRESS = redboot_return_address;
 
     // HACK: UART init really aught to be done in userspace!
+    // We do it here since the kernel currently uses busy-wait logging.
     use ts7200::hw::uart;
     let mut term_uart = uart::Uart::new(uart::Channel::COM2);
     term_uart.set_fifo(false);

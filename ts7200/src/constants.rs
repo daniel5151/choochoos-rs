@@ -1,3 +1,6 @@
+//! Raw hardware constants (register addresses, masks, offsets).
+
+/// Timers
 pub mod timer {
     pub const TIMER1_BASE: u32 = 0x8081_0000;
     pub const TIMER2_BASE: u32 = 0x8081_0020;
@@ -13,6 +16,7 @@ pub mod timer {
     pub const CLKSEL_MASK: u32 = 0x08;
 }
 
+/// UARTs
 pub mod uart {
     pub const UART1_BASE: u32 = 0x808c_0000;
     pub const UART2_BASE: u32 = 0x808d_0000;
@@ -66,6 +70,7 @@ pub mod uart {
     pub const DMAR_OFFSET: u32 = 0x28;
 }
 
+/// VIC - Vectored Interrupt Controller
 pub mod vic {
     pub const VIC1_BASE: u32 = 0x800b0000;
     pub const VIC2_BASE: u32 = 0x800c0000;
@@ -94,6 +99,7 @@ pub mod vic {
     pub const INT_PROTECTION_OFFSET: u32 = 0x20;
 }
 
+/// System Controller
 pub mod syscon {
     pub const DEVICECFG: u32 = 0x80930080;
     pub const SWLOCK: u32 = 0x809300C0;

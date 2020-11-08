@@ -1,3 +1,5 @@
+//! Task descriptor data structures.
+
 use core::ptr;
 
 use abi::Tid;
@@ -6,29 +8,47 @@ use crate::util::user_slice::{UserSlice, UserSliceMut};
 
 use super::arch::UserStack;
 
+/// A Task's execution statue + state-specific associated data.
 #[derive(Debug)]
 pub enum TaskState {
+    /// Ready (and waiting to be scheduled)
     Ready,
+    /// Blocked - waiting to send a message.
     SendWait {
+        /// The message being sent.
         msg_src: UserSlice<u8>,
+        /// The reply buffer.
         reply_dst: UserSliceMut<u8>,
+        /// Pointer to Sender waiting for this task to finish sending.
         next: Option<Tid>,
     },
+    /// Blocked - waiting to receive a message.
     RecvWait {
+        /// Where to write the Sender's Tid.
         sender_tid_dst: Option<ptr::NonNull<Tid>>,
+        /// The receive buffer.
         recv_dst: UserSliceMut<u8>,
     },
+    /// Blocked - waiting to receive a reply message.
     ReplyWait {
+        /// The reply buffer.
         reply_dst: UserSliceMut<u8>,
     },
+    /// Blocked - waiting for an event to occur.
     EventWait,
 }
 
+/// Task descriptor.
 pub struct TaskDescriptor {
+    /// Scheduling priority (higher priority = preferential scheduling)
     pub priority: isize,
+    /// Tid of parent task. The `FirstUserTask` and `NameServerTask` are spawned
+    /// by the kernel, and have not parent task.
     pub parent_tid: Option<Tid>,
+    /// A suspended task's stack pointer.
     pub sp: ptr::NonNull<UserStack>,
 
+    /// The Tasks's execution state + state-specific associated data.
     pub state: TaskState,
 
     pub send_queue_head: Option<Tid>,
@@ -36,6 +56,7 @@ pub struct TaskDescriptor {
 }
 
 impl TaskDescriptor {
+    /// Create a fresh `TaskDescriptor`.
     pub fn new(
         priority: isize,
         parent_tid: Option<Tid>,

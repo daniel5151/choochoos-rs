@@ -1,20 +1,23 @@
+//! Kernel heap implementation. Requires enabling the `heap` feature.
+
 use alloc::alloc::Layout;
 use core::alloc::GlobalAlloc;
 use core::cell::UnsafeCell;
 
 use linked_list_allocator::Heap;
 
+/// The global Kernel allocator.
 #[global_allocator]
 pub static ALLOCATOR: LLHeap = LLHeap::new();
 
 #[cfg_attr(not(test), alloc_error_handler)]
 #[allow(dead_code, clippy::empty_loop)]
-fn alloc_error(_layout: Layout) -> ! {
-    panic!("ALLOCATION ERROR!");
+fn alloc_error(layout: Layout) -> ! {
+    panic!("Kernel heap allocation error: {:?}", layout);
 }
 
-/// Wrapper around [linked_list_allocator::Heap] implementing the
-/// GlobalAlloc trait.
+/// Wrapper around [`linked_list_allocator::Heap`](https://docs.rs/linked_list_allocator/0.8.6/linked_list_allocator/struct.Heap.html)
+/// implementing the [`GlobalAlloc`] trait.
 pub struct LLHeap(UnsafeCell<Heap>);
 
 /// # Safety

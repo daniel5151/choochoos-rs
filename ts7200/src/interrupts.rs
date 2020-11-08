@@ -1,3 +1,5 @@
+//! VIC Interrupts.
+
 /// Interrupt sources available on the TS-7200 platform (non-exhaustive).
 ///
 /// Source: EP93xx User's Guide Table 6-1 (section 6.1.2)
@@ -30,6 +32,8 @@ pub enum Interrupt {
 }
 
 impl Interrupt {
+    /// Returns an index from 0..64 corresponding to the interrupt's overall VIC
+    /// index (taking daisy-chaining into account).
     pub fn to_overall_idx(self) -> u8 {
         use Interrupt::*;
         match self {
@@ -48,10 +52,13 @@ impl Interrupt {
         }
     }
 
+    /// Returns an index from 0..32 corresponding to the interrupt's
+    /// VIC-specific index.
     pub fn to_vic_idx(self) -> u8 {
         self.to_overall_idx() % 32
     }
 
+    /// Construct an `Interrupt` from it's overall VIC index.
     pub fn from_overall_idx(idx: u8) -> Option<Interrupt> {
         use Interrupt::*;
         let interrupt = match idx {

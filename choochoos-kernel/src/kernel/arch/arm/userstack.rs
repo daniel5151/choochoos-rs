@@ -1,21 +1,32 @@
-/// Provides a structured view into a suspended user stack.
+/// Provides a structured view into a suspended user stack, as returned by the
+/// context switch routines in the [`ctx_switch`](super::ctx_switch) module.
 ///
-/// Cannot be instantiated directly, and can only be obtained through an unsafe
-/// case from a raw task stack pointer.
+/// This struct has no constructor, and is marked `#[non_exhaustive]`. This is
+/// because it should never be directly initialized, and should only be used
+/// through a reference that was obtained using an unsafe cast from a raw task
+/// stack pointer.
 #[repr(C, align(4))]
 #[derive(Debug)]
 #[non_exhaustive] // disallow brace initialization
 pub struct UserStack {
+    /// Saved Process Status Register
     pub spsr: usize,
+    /// Program Counter
     pub pc: unsafe extern "C" fn(),
+    /// General Purpose Registers
     pub regs: [usize; 13],
+    /// Link Register
     pub lr: usize,
-    // gets indexed using `get_unchecked`
+    /// Syscall parameters passed via the stack.
+    ///
+    /// This field is accessed using `get_unchecked`.
     pub other_params: [usize; 0],
 }
 
 impl UserStack {
     /// Inject a return value into the saved user stack.
+    ///
+    /// # Panics
     ///
     /// Currently only supports values with size equal to
     /// `mem::size_of::<usize>()`
@@ -42,6 +53,8 @@ pub struct UserStackArgs<'a> {
 
 impl<'a> UserStackArgs<'a> {
     /// Obtain a reference to the next argument in the user's stack.
+    ///
+    /// # Panics
     ///
     /// Currently only supports values with size equal to
     /// `mem::size_of::<usize>()`

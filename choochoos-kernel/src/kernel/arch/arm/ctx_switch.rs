@@ -1,10 +1,14 @@
+//! Low-level assembly routines for entering/exiting the Kernel.
+
 use core::ptr;
 
 use super::userstack::UserStack;
 
 #[inline(never)]
 #[naked]
-pub unsafe extern "C" fn _activate_task(next_sp: usize) -> ptr::NonNull<UserStack> {
+pub unsafe extern "C" fn _activate_task(
+    next_sp: ptr::NonNull<UserStack>,
+) -> ptr::NonNull<UserStack> {
     let _ = next_sp;
     // `next_sp` is implicitly placed into "r0"
 

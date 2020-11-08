@@ -7,8 +7,7 @@
 use core::num::NonZeroUsize;
 
 pub use abi;
-
-use abi::Tid;
+pub use abi::Tid;
 
 #[allow(non_snake_case, unused_variables)]
 mod raw {
@@ -132,7 +131,7 @@ pub fn r#yield() {
 /// owned by the task, primarily its memory and task descriptor, are not
 /// reclaimed.
 ///
-/// NOTE: Each task implicitly calls `exit` when it returns!
+/// NOTE: Each task must call `exit` when it returns!
 pub fn exit() {
     unsafe { raw::__Exit() }
 }
@@ -305,7 +304,8 @@ pub fn perf() -> abi::PerfData {
     }
 }
 
-/// Methods to communicate with the global Name Server.
+/// Methods to communicate with the global Name Server. TODO: re-export
+/// implementation from the nameserver crate itself.
 ///
 /// _NOTE:_ These methods are just wrappers around raw `send()` calls, taking
 /// care of any implementation-specific message un/marshalling.

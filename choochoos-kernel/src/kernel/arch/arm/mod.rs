@@ -1,12 +1,12 @@
 //! Architecture specific code for 32-bit ARM
 
+mod create_task;
 mod ctx_switch;
 mod irq_handler;
 mod swi_handler;
 mod userstack;
 
-pub mod create_task;
-
+pub use create_task::fresh_stack;
 pub use ctx_switch::_activate_task;
 pub use userstack::UserStack;
 

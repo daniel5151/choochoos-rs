@@ -1,3 +1,9 @@
+//! Low-level utilities, useful for bootstrapping.
+//!
+//! **WARNING:** while these utilities may be useful when bootstrapping a
+//! system, they should be used with extreme caution, as they access global
+//! hardware resources with no synchronization!
+
 use core::fmt;
 
 use crate::hw::uart::{self, Uart};
@@ -17,13 +23,11 @@ impl fmt::Write for BusyWaitLogger {
             COM2.as_mut().unwrap()
         };
 
-        unsafe {
-            for &b in s.as_bytes() {
-                if b == b'\n' {
-                    uart.write_byte_blocking(b'\r');
-                }
-                uart.write_byte_blocking(b);
+        for &b in s.as_bytes() {
+            if b == b'\n' {
+                uart.write_byte_blocking(b'\r');
             }
+            uart.write_byte_blocking(b);
         }
 
         Ok(())

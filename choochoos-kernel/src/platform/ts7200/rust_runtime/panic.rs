@@ -1,18 +1,9 @@
-// FIXME: make panic work properly in user code.
-//
-// Since we directly link with userland, calling `panic!` from user code will
-// end up running this method.
-//
-// One option is to create a different panic! function just for userland, which
-// might route to a new syscall (Terminate? Panic?), allowing the kernel to
-// ack. the panic, and clean-up accordingly.
-//
-// Another option would be to avoid using a different macro, and instead add a
-// inline-asm check in this method to cause a swi if the method is called from
-// userland. Kinda jank, but it should work.
-
 use owo_colors::OwoColorize;
 
+// no atomics
+static mut RECURSIVE_PANIC: bool = false;
+
+/// Busy-wait prints the error message, and then yields control back to Redboot.
 #[cfg_attr(not(test), panic_handler)]
 #[allow(dead_code, clippy::empty_loop)]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -22,6 +13,15 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // TODO?: flush kernel logs
     // TODO?: manual backtrace / crash dump
 
+    // try and clean up, while making sure that if the teardown routine panics,
+    // there isn't an infinite loop.
+    unsafe {
+        if !RECURSIVE_PANIC {
+            RECURSIVE_PANIC = true;
+            super::super::teardown();
+        }
+    }
+
     // exit to RedBoot
     unsafe {
         asm!(
@@ -30,5 +30,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         );
     }
 
+    // unreachable
     loop {}
 }
