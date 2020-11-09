@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "k2"
+crate-type = ["staticlib"]
+
 [dependencies]
-choochoos-api = { path = "../../../choochoos-api" }
-ts7200 = { path = "../../../ts7200" }
+choochoos = { path = "../../choochoos" }
+ts7200 = { path = "../../ts7200" }

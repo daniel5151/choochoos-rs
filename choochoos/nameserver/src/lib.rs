@@ -1,12 +1,24 @@
-//! The choochoos name server API.
+//! The choochoos name server implementation.
 //!
-//! This crate implements the stable userspace interface for the name server.
-//!
-//! See the `nameserver` crate for the name server task's actual implementation.
+//! Unlike all other userspace tasks, the [`NameServerTask`] is directly spawned
+//! by the Kernel, and is guaranteed to have a
+//! [fixed TID](sys::abi::NAMESERVER_TID).
 
+#![deny(missing_docs)]
 #![no_std]
 
-use sys::Tid;
+use owo_colors::OwoColorize;
+
+use abi::Tid;
+use syscall as sys;
+use ts7200::bwprintln;
+
+/// WARNING: Currently unimplemented.
+#[no_mangle]
+pub extern "C" fn NameServerTask() {
+    bwprintln!("{}", "WARNING: Name Server isn't implemented yet!".yellow());
+    sys::exit();
+}
 
 /// Errors which may occur when talking to the Name Server.
 pub enum Error {
@@ -36,9 +48,6 @@ pub fn register_as(name: &str) -> Result<(), Error> {
 /// There is guaranteed to be a unique task id associated with each
 /// registered name, but the registered task may change at any time
 /// after a call to `who_is()`.
-///
-/// _NOTE:_ `who_is()` is actually a wrapper around a raw `send()` to the
-/// name server.
 pub fn who_is(name: &str) -> Result<Tid, Error> {
     unimplemented!("called who_is(name: {:?})", name)
 }

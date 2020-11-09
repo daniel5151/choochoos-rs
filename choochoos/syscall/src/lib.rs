@@ -1,17 +1,16 @@
-//! An idiomatic Rust API on-top of the raw `choochoos` ABI.
+//! An idiomatic Rust API on-top of raw `choochoos` syscalls.
 
-#![no_std]
-#![deny(missing_docs)]
 #![feature(asm, naked_functions)]
+#![no_std]
 
 use core::num::NonZeroUsize;
 
 pub use abi;
-pub use abi::Tid;
+pub use abi::{PerfData, Tid};
 
 #[allow(non_snake_case, unused_variables)]
 mod raw {
-    use super::abi::{PerfData, Tid};
+    use abi::{PerfData, Tid};
 
     macro_rules! raw_syscall {
         ($no:literal => $($sig:tt)*) => {

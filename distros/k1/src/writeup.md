@@ -6,7 +6,7 @@ One nice benefit of using Rust is that it has incredibly powerful built-in Markd
 
 **NOTE:** Intra-doc links will not work when the page is exported/printed to a PDF! It would be a good to urge TAs to use the HTML output instead, as it would make their lives a lot easier (as they could review code directly in-browser).
 
-For example, let's say I'm discussing the [`first_user_task`] function. Whoah, look at that, there's a link that takes you to the function! From that page, you can click on the `[src]` button in the top-right to jump directly to the function's implementation. Doc links even work across crate boundaries! e.g: here's a link to the [`choochoos_api::create()`] syscall.
+For example, let's say I'm discussing the [`first_user_task`] function. Whoah, look at that, there's a link that takes you to the function! From that page, you can click on the `[src]` button in the top-right to jump directly to the function's implementation. Doc links even work across crate boundaries! e.g: here's a link to the [`choochoos::sys::create()`] syscall.
 
 Note that this feature is limited to items which are in the same scope as the userspace crate (specifically, the `writeup` module). Notably, this excludes directly linking to `choochoos_kernel` code.
 

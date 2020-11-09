@@ -1,0 +1,17 @@
+[package]
+name = "choochoos"
+version = "0.1.0"
+authors = ["Daniel Prilik <danielprilik@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+abi = { package = "choochoos-abi", path = "../choochoos-abi" }
+
+syscall = { path = "./syscall" }
+nameserver = { path = "./nameserver" }
+
+owo-colors = "1.1"
+
+# TEMP - used for bwprintln, but conceptually, this library shouldn't use any
+# platform-specific bits of functionality
+ts7200 = { path = "../ts7200" }

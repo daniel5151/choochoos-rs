@@ -7,9 +7,8 @@ pub mod writeup {
     use super::*;
 }
 
+use choochoos::sys;
 use ts7200::bwprintln;
-
-use choochoos_api as sys;
 
 extern "C" fn other_task() {
     bwprintln!(

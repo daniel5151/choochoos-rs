@@ -25,15 +25,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
-name = "choochoos-abi"
-version = "0.1.0"
-
-[[package]]
-name = "choochoos-api"
+name = "choochoos"
 version = "0.1.0"
 dependencies = [
  "choochoos-abi",
+ "nameserver",
+ "owo-colors",
+ "syscall",
+ "ts7200",
 ]
+
+[[package]]
+name = "choochoos-abi"
+version = "0.1.0"
 
 [[package]]
 name = "choochoos-kernel"
@@ -108,7 +112,7 @@ dependencies = [
 name = "k1"
 version = "0.1.0"
 dependencies = [
- "choochoos-api",
+ "choochoos",
  "ts7200",
 ]
 
@@ -116,7 +120,7 @@ dependencies = [
 name = "k2"
 version = "0.1.0"
 dependencies = [
- "choochoos-api",
+ "choochoos",
  "ts7200",
 ]
 
@@ -130,17 +134,10 @@ checksum = "84565678e403453d1a27a0886882b3b271701e65146d972d9d7d9a4c4a0ff498"
 name = "nameserver"
 version = "0.1.0"
 dependencies = [
- "choochoos-api",
- "nameserver-api",
+ "choochoos-abi",
  "owo-colors",
+ "syscall",
  "ts7200",
-]
-
-[[package]]
-name = "nameserver-api"
-version = "0.1.0"
-dependencies = [
- "choochoos-api",
 ]
 
 [[package]]
@@ -156,6 +153,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
+name = "syscall"
+version = "0.1.0"
+dependencies = [
+ "choochoos-abi",
+]
+
+[[package]]
 name = "ts7200"
 version = "0.1.0"
 
@@ -164,18 +168,6 @@ name = "typenum"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "373c8a200f9e67a0c95e62a4f52fbf80c23b4381c05a17845531982fa99e6b33"
-
-[[package]]
-name = "userspace"
-version = "0.1.0"
-dependencies = [
- "choochoos-api",
- "k1",
- "k2",
- "nameserver",
- "owo-colors",
- "ts7200",
-]
 
 [[package]]
 name = "version_check"

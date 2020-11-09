@@ -1,4 +1,4 @@
-//! Types and structures exposed by the `choochoos` kernel.
+//! Types and constants which define the choochoos kernel/userspace ABI.
 //!
 //! This crate is the "source of truth" for the choochoos kernel-userspace ABI,
 //! and is used on both sides of the kernel/userspace boundary to ensure that

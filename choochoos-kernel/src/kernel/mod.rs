@@ -49,9 +49,16 @@ type MAX_EVENTS = U16;
 
 /// The core choochoos kernel!
 pub struct Kernel {
+    /// Fixed-size array of TaskDescriptor.
+    ///
+    /// At the moment, [`Tid`]s are direct indexes into this array.
     tasks: [Option<TaskDescriptor>; MAX_TASKS],
+    /// The currently running Tid.
     current_tid: Option<Tid>,
+    /// Priority queue of tasks ready to be scheduled.
     ready_queue: BinaryHeap<ReadyQueueItem, MAX_TASKS, Max>, // matches number of tasks
+    /// A map of `event_id`s to either a blocked task, or some unclaimed
+    /// volatile data.
     event_queue: LinearMap<usize, EventQueueItem, MAX_EVENTS>,
 }
 
@@ -91,7 +98,6 @@ impl Kernel {
         // spawn the first user task and the name server task.
 
         // provided by userspace
-        #[link(name = "userspace", kind = "static")]
         extern "C" {
             fn FirstUserTask();
             fn NameServerTask();

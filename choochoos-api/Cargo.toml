@@ -1,8 +1,0 @@
-[package]
-name = "choochoos-api"
-version = "0.1.0"
-authors = ["Daniel Prilik <danielprilik@gmail.com>"]
-edition = "2018"
-
-[dependencies]
-abi = { package = "choochoos-abi", path = "../choochoos-abi" }

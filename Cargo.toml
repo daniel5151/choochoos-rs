@@ -1,17 +1,14 @@
 [workspace]
 members = [
+    "choochoos",
     "choochoos-abi",
-    "choochoos-platform-ts7200",
-    "choochoos-api",
     "choochoos-kernel",
+    "choochoos-platform-ts7200",
 
     "ts7200",
 
-    "userspace/",
-    "userspace/shared/nameserver",
-    "userspace/shared/nameserver-api",
-    "userspace/distros/k1",
-    "userspace/distros/k2",
+    "distros/k1",
+    "distros/k2",
 ]
 
 [profile.release]
@@ -24,3 +21,19 @@ panic = "abort"
 # opt-level = 1
 debug = true
 panic = "abort"
+
+# Always build core packages in release mode.
+# Due to a cargo bug, a bunch of "dependency not found" warnings are emitted,
+# but these flags do in-fact work as intended.
+
+[profile.dev.package.compiler_builtins]
+opt-level = 2
+
+[profile.dev.package.core]
+opt-level = 2
+
+[profile.dev.package.rustc-std-workspace-core]
+opt-level = 2
+
+[profile.dev.package.alloc]
+opt-level = 2

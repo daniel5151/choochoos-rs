@@ -1,4 +1,7 @@
-DISTRO := k1
+export DISTRO := k1
+
+OBJCOPY = $(shell find $(shell rustc --print sysroot) -name llvm-objcopy)
+
 EXTRA_KERNEL_FEATURES :=
 EXTRA_USER_FEATURES :=
 
@@ -8,7 +11,7 @@ CARGO_FLAGS = \
 	-Z build-std=core,alloc \
 	--out-dir=bin
 CARGO_KERNEL_FEATURES += $(EXTRA_KERNEL_FEATURES)
-CARGO_USER_FEATURES += $(DISTRO) $(EXTRA_USER_FEATURES)
+CARGO_USER_FEATURES += $(EXTRA_USER_FEATURES)
 
 ifndef DEBUG
 	CARGO_FLAGS += --release
@@ -24,26 +27,23 @@ all: userspace kernel # order matters here
 # the resulting binary size (assuming that userspace is still being statically
 # linked with choochoos-kernel)
 
+# DEVNOTE: while it'd be nice to just use the `cargo build -p <package>` syntax,
+# it doesn't play nice with `--features` at the moment. Instead, the
+# `--manifest-path` flag is used instead.
+
 .PHONY: userspace
 userspace:
 	cargo build \
 		$(CARGO_FLAGS) \
-		--manifest-path userspace/Cargo.toml \
+		--manifest-path distros/$(DISTRO)/Cargo.toml \
 		--features "$(CARGO_USER_FEATURES)"
 	# cheeky hack to work around the fact that Rust doesn't really support
 	# linking multiple static libraries together.
-	arm-none-eabi-objcopy bin/libuserspace.a \
-		--redefine-sym rust_begin_unwind=user_rust_begin_unwind
+	echo $(OBJCOPY)
+	$(OBJCOPY) ./bin/lib$(DISTRO).a --redefine-sym rust_begin_unwind=user_rust_begin_unwind
 
 .PHONY: kernel
 kernel:
-ifdef CUSTOM_USERSPACE
-	# HACK: this is a terrible kludgy solution, but I don't want to deal with build
-	# system stuff right now.
-	mkdir -p ./bin/
-	cp $(CUSTOM_USERSPACE) ./bin/
-endif
-
 	cargo build \
 		$(CARGO_FLAGS) \
 		--manifest-path choochoos-kernel/Cargo.toml \
