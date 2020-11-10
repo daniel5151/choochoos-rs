@@ -18,9 +18,7 @@ macro_rules! kdebug {
             crate::platform::bwprint::BusyWaitLogger
                 .write_fmt(format_args!(
                     // foreground color = yellow
-                    concat!("\x1b[33m", "[kdebug][{}:{}][tid={}] ", "\x1b[0m", $fmt, "\n\r"),
-                    file!(),
-                    line!(),
+                    concat!("\x1b[33m", "[kdebug][tid={}][{}:{}] ", "\x1b[0m", $fmt, "\n\r"),
                     match $crate::KERNEL {
                         Some(ref kernel) => {
                             kernel.current_tid()
@@ -29,6 +27,8 @@ macro_rules! kdebug {
                         }
                         None => unsafe { core::hint::unreachable_unchecked(); },
                     },
+                    file!(),
+                    line!(),
                     $($arg)*
                 ))
                 .unwrap();
