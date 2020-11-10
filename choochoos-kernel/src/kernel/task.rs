@@ -39,6 +39,7 @@ pub enum TaskState {
 }
 
 /// Task descriptor.
+#[derive(Debug)]
 pub struct TaskDescriptor {
     /// Scheduling priority (higher priority = preferential scheduling)
     pub priority: isize,
