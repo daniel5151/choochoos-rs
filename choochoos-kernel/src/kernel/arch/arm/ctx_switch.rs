@@ -53,7 +53,7 @@ pub unsafe extern "C" fn _activate_task(
 
     // the return value is actually provided by the _swi_handler/_irq_handler
     // assembly routines
-    unreachable!("cannot re-enter the kernel from _activate_task");
+    loop {}
 }
 
 #[naked]
