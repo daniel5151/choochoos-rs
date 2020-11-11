@@ -103,9 +103,10 @@ impl Kernel {
             fn NameServerTask();
         }
 
-        // TODO: ensure that `NameServerTask` corresponds to abi::NAMESERVER_TID
-        (self.syscall_create(0, Some(FirstUserTask))).unwrap();
-        (self.syscall_create(0, Some(NameServerTask))).unwrap();
+        self.syscall_create(0, Some(FirstUserTask)).unwrap();
+        let ns_tid = self.syscall_create(0, Some(NameServerTask)).unwrap();
+
+        assert_eq!(ns_tid, abi::NAMESERVER_TID);
 
         // enter the main kernel loop
         loop {

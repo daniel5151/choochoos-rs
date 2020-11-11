@@ -1,0 +1,12 @@
+[package]
+name = "extern_userspace"
+version = "0.1.0"
+authors = ["Daniel Prilik <danielprilik@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "extern_userspace"
+crate-type = ["staticlib"]
+
+[dependencies]
+choochoos = { path = "../../choochoos" }

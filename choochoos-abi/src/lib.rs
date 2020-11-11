@@ -100,11 +100,11 @@ pub mod syscall {
         use crate::{PerfData, Tid};
 
         pub type Yield = unsafe extern "C" fn();
-        pub type Exit = unsafe extern "C" fn();
+        pub type Exit = unsafe extern "C" fn() -> !;
         pub type MyParentTid = unsafe extern "C" fn() -> isize;
         pub type MyTid = unsafe extern "C" fn() -> isize;
         pub type Create =
-            unsafe extern "C" fn(priority: isize, function: Option<extern "C" fn()>) -> isize;
+            unsafe extern "C" fn(priority: isize, function: Option<extern "C" fn() -> !>) -> isize;
         pub type Send = unsafe extern "C" fn(
             tid: Tid,
             msg: *const u8,
@@ -116,7 +116,11 @@ pub mod syscall {
             unsafe extern "C" fn(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize;
         pub type Reply = unsafe extern "C" fn(tid: Tid, reply: *const u8, rplen: usize) -> isize;
         pub type AwaitEvent = unsafe extern "C" fn(event_id: usize) -> isize;
+
+        /// Custom - Query kernel-specific [`PerfData`]
         pub type Perf = unsafe extern "C" fn(perf: *mut PerfData);
+        /// Custom - Terminate the kernel.
+        pub type Shutdown = unsafe extern "C" fn() -> !;
     }
 
     /// Errors returned by various syscalls.

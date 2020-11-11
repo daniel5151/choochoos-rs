@@ -74,3 +74,38 @@ nightly features are used as well:
 - [doc_cfg](https://doc.rust-lang.org/unstable-book/language-features/doc-cfg.html):
     - Quality of Life feature that highlights when certain items require a cargo
     feature to be enabled (e.g: kernel heap support).
+
+## Cool Rust Features
+
+This is a (very) non-exhaustive list of cool features that Rust brings to the
+table when it comes to kernel development.
+
+#### Type-level enforcement that Tasks call `Exit()`.
+
+While most C compilers implement some sort of `__attribute__((noreturn))`
+attribute, and the C++11 standard specifies a `[[noreturn]]` attribute, these
+attributes aren't type-level constructs, and can't be used to enforce
+non-returning computation through
+[function pointers](https://stackoverflow.com/questions/28739082/how-to-use-noreturn-with-function-pointer).
+
+As such, users must be incredibly careful to make sure that any task they write
+in C/C++ call `Exit()` when they terminate, as forgetting to do so will result
+in undefined behavior (typically causing execution to jump to some random point
+in memory, and often resulting in an access violation).
+
+Rust's counterpart to the C/C++ notion of `noreturn` is the
+[`never`](https://doc.rust-lang.org/std/primitive.never.html) type (written
+as `!`), which represents a computation that never resolves to a value. Since
+it's part of the type system, `!` doesn't suffer the same limitations as the
+`noreturn` attribute in C/C++, and can be used to enforce non-returning
+computation through function pointers, and catch errors at compile time!
+
+For example: the type of `choochoos::abi::syscall::signature::Create` is defined
+to only accept function pointers with the type `Option<extern "C" fn() -> !>`
+(i.e: a nullable function pointer which takes no parameters, and never returns).
+This type is distinct and incompatible with `Option<extern "C" fn()>`, which
+would be a function that returns `()` (the equivalent of `void` in C/C++).
+
+For example: If a user forgets to include a call to `choochoos::sys::exit()` at
+the end of a task, or happens to omit the `!` return type from the task's
+function definition, their code won't even compile!

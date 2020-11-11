@@ -1,5 +1,6 @@
-//! An idiomatic Rust API on-top of raw `choochoos` syscalls.
+//! Userspace  `choochoos` syscalls.
 
+#![deny(missing_docs)]
 #![feature(asm, naked_functions)]
 #![no_std]
 
@@ -8,58 +9,54 @@ use core::num::NonZeroUsize;
 pub use abi;
 pub use abi::{PerfData, Tid};
 
+/// C-FII exposing the interface outlined in the
+/// [CS 452 Kernel Description](https://student.cs.uwaterloo.ca/~cs452/W20/assignments/kernel.html).
 #[allow(non_snake_case, unused_variables)]
-mod raw {
+#[allow(missing_docs, clippy::missing_safety_doc)]
+pub mod ffi {
+    use abi::syscall::{signature, SyscallNo};
     use abi::{PerfData, Tid};
 
-    macro_rules! raw_syscall {
-        ($no:literal => $($sig:tt)*) => {
+    macro_rules! sys {
+        (
+            $(#[$meta:meta])*
+            fn $name:ident $($sig:tt)*
+        ) => {
+            $(#[$meta])*
             #[naked]
-            #[inline(never)]
-            pub unsafe extern "C" $($sig)* {
+            #[no_mangle]
+            #[inline(never)] // very important - puts parameters in the right place
+            pub unsafe extern "C" fn $name $($sig)* {
                 asm! {
-                    concat!("swi #", stringify!($no)),
+                    "swi {no}",
                     "bx lr",
+                    no = const (SyscallNo::$name as u8),
                 }
-                unreachable!()
+                loop {}
             }
+
+            // Ensure that the function signature matches the one defined in `choochoos_abi`
+            const _: signature::$name = $name;
         };
     }
 
-    raw_syscall!(0 => fn __Yield());
-    raw_syscall!(1 => fn __Exit());
-    raw_syscall!(2 => fn __MyTid() -> isize);
-    raw_syscall!(3 => fn __MyParentTid() -> isize);
-    raw_syscall!(4 => fn __Create(priority: isize, function: Option<extern "C" fn()>) -> isize);
-    raw_syscall!(5 => fn __Send(
-            tid: Tid,
-            msg: *const u8,
-            msglen: usize,
-            reply: *mut u8,
-            rplen: usize,
-        ) -> isize);
-    raw_syscall!(6 => fn __Receive(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize);
-    raw_syscall!(7 => fn __Reply(tid: Tid, reply: *const u8, rplen: usize) -> isize);
-    raw_syscall!(8 => fn __AwaitEvent(event_id: usize) -> isize);
+    sys! { fn Yield() }
+    sys! { fn Exit() -> ! }
+    sys! { fn MyParentTid() -> isize }
+    sys! { fn MyTid() -> isize }
+    sys! { fn Create(priority: isize, function: Option<extern "C" fn() -> !>) -> isize }
+    sys! { fn Send( tid: Tid, msg: *const u8, msglen: usize, reply: *mut u8, rplen: usize) -> isize }
+    sys! { fn Receive(tid: *mut Tid, msg: *mut u8, msglen: usize) -> isize }
+    sys! { fn Reply(tid: Tid, reply: *const u8, rplen: usize) -> isize }
+    sys! { fn AwaitEvent(event_id: usize) -> isize }
 
-    raw_syscall!(9 => fn __Perf(perf: *mut PerfData));
-
-    // Ensure that the type signatures match those defined in `choochoos_abi`
-    mod abi_assert {
-        use super::*;
-        use abi::syscall::signature as sig;
-
-        const _: sig::Yield = __Yield;
-        const _: sig::Exit = __Exit;
-        const _: sig::MyTid = __MyTid;
-        const _: sig::MyParentTid = __MyParentTid;
-        const _: sig::Create = __Create;
-        const _: sig::Send = __Send;
-        const _: sig::Receive = __Receive;
-        const _: sig::Reply = __Reply;
-        const _: sig::AwaitEvent = __AwaitEvent;
-
-        const _: sig::Perf = __Perf;
+    sys! {
+        /// Custom - Obtain kernel-specific [`PerfData`]
+        fn Perf(perf: *mut PerfData)
+    }
+    sys! {
+        /// Custom - Terminate the kernel.
+        fn Shutdown() -> !
     }
 }
 
@@ -122,7 +119,7 @@ pub mod error {
 /// The task is moved to the end of its priority queue, and will resume
 /// executing when next scheduled.
 pub fn r#yield() {
-    unsafe { raw::__Yield() }
+    unsafe { ffi::Yield() }
 }
 
 /// Causes a task to cease execution permanently. It is removed from all
@@ -131,21 +128,21 @@ pub fn r#yield() {
 /// reclaimed.
 ///
 /// NOTE: Each task must call `exit` when it returns!
-pub fn exit() {
-    unsafe { raw::__Exit() }
+pub fn exit() -> ! {
+    unsafe { ffi::Exit() }
 }
 
 /// Returns the task id of the calling task.
 pub fn my_tid() -> Tid {
     // SAFETY: The MyTid syscall cannot return an error
-    unsafe { Tid::from_raw(raw::__MyTid() as usize) }
+    unsafe { Tid::from_raw(ffi::MyTid() as usize) }
 }
 
 /// Returns the task id of the task that created the calling task.
 ///
 /// Returns [`None`] if the parent task has exited or been destroyed.
 pub fn my_parent_tid() -> Option<Tid> {
-    let ret = unsafe { raw::__MyParentTid() };
+    let ret = unsafe { ffi::MyParentTid() };
     match ret {
         e if e < 0 => None,
         // SAFETY: tid is guaranteed to be greater than zero
@@ -161,8 +158,8 @@ pub fn my_parent_tid() -> Option<Tid> {
 /// needed to run the task, the task’s stack has been suitably initialized, and
 /// the task has been entered into its ready queue so that it will run the next
 /// time it is scheduled.
-pub fn create(priority: usize, function: extern "C" fn()) -> Result<Tid, error::Create> {
-    let ret = unsafe { raw::__Create(priority as isize, Some(function)) };
+pub fn create(priority: usize, function: extern "C" fn() -> !) -> Result<Tid, error::Create> {
+    let ret = unsafe { ffi::Create(priority as isize, Some(function)) };
     match ret {
         e if ret < 0 => match e {
             -1 => Err(error::Create::InvalidPriority),
@@ -192,9 +189,17 @@ pub fn create(priority: usize, function: extern "C" fn()) -> Result<Tid, error::
 /// There is no guarantee that `send()` will return. If, for example, the task
 /// to which the message is directed never calls `receive()`, `send()` never
 /// returns and the sending task remains blocked forever.
-pub fn send(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Send> {
+pub fn send(
+    tid: Tid,
+    msg: impl AsRef<[u8]>,
+    mut reply: impl AsMut<[u8]>,
+) -> Result<usize, error::Send> {
+    send_impl(tid, msg.as_ref(), reply.as_mut())
+}
+
+fn send_impl(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Send> {
     let ret = unsafe {
-        raw::__Send(
+        ffi::Send(
             tid,
             msg.as_ptr(),
             msg.len(),
@@ -230,9 +235,13 @@ pub fn send(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Send
 /// The kernel will not overflow the message buffer. If the size of the message
 /// set exceeds msglen, the message is truncated and the buffer contains the
 /// and a [`error::Receive::Truncated`] is returned.
-pub fn receive(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
+pub fn receive(mut msg: impl AsMut<[u8]>) -> Result<(Tid, usize), error::Receive> {
+    receive_impl(msg.as_mut())
+}
+
+fn receive_impl(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
     let mut tid = unsafe { Tid::from_raw(0) };
-    let ret = unsafe { raw::__Receive(&mut tid, msg.as_mut_ptr(), msg.len()) };
+    let ret = unsafe { ffi::Receive(&mut tid, msg.as_mut_ptr(), msg.len()) };
     match ret {
         e if ret < 0 => panic!("unexpected Receive error: {}", e),
         msglen => {
@@ -257,8 +266,12 @@ pub fn receive(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
 /// The calling task and the sender return at the same logical time, so
 /// whichever is of higher priority runs first. If they are of the same
 /// priority, the sender runs first.
-pub fn reply(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
-    let ret = unsafe { raw::__Reply(tid, reply.as_ptr(), reply.len()) };
+pub fn reply(tid: Tid, reply: impl AsRef<[u8]>) -> Result<usize, error::Reply> {
+    reply_impl(tid, reply.as_ref())
+}
+
+fn reply_impl(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
+    let ret = unsafe { ffi::Reply(tid, reply.as_ptr(), reply.len()) };
     match ret {
         e if ret < 0 => match e {
             -1 => Err(error::Reply::TidDoesNotExist),
@@ -283,7 +296,7 @@ pub fn reply(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
 ///
 /// Valid `event_id` numbers vary based on target platform.
 pub fn await_event(event_id: usize) -> Result<usize, error::AwaitEvent> {
-    let ret = unsafe { raw::__AwaitEvent(event_id) };
+    let ret = unsafe { ffi::AwaitEvent(event_id) };
     match ret {
         e if ret < 0 => match e {
             -1 => Err(error::AwaitEvent::InvalidEventId),
@@ -298,7 +311,7 @@ pub fn await_event(event_id: usize) -> Result<usize, error::AwaitEvent> {
 pub fn perf() -> abi::PerfData {
     unsafe {
         let mut perf_data = core::mem::MaybeUninit::<abi::PerfData>::uninit();
-        raw::__Perf(perf_data.as_mut_ptr());
+        ffi::Perf(perf_data.as_mut_ptr());
         perf_data.assume_init()
     }
 }

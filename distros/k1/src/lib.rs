@@ -10,7 +10,7 @@ pub mod writeup {
 use choochoos::sys;
 use ts7200::bwprintln;
 
-extern "C" fn other_task() {
+extern "C" fn other_task() -> ! {
     bwprintln!(
         "MyTid={:?} MyParentTid={:?}",
         sys::my_tid(),
@@ -26,7 +26,7 @@ extern "C" fn other_task() {
 }
 
 // marked pub so that it can be referenced from the writeup docs.
-pub extern "C" fn first_user_task() {
+pub extern "C" fn first_user_task() -> ! {
     bwprintln!("Created: {:?}", sys::create(3, other_task).unwrap());
     bwprintln!("Created: {:?}", sys::create(3, other_task).unwrap());
     bwprintln!("Created: {:?}", sys::create(5, other_task).unwrap());
@@ -35,11 +35,11 @@ pub extern "C" fn first_user_task() {
     sys::exit();
 }
 
-/// FirstUserTask has a priority of 0, and our kernel doesn't support negative
-/// priorities. Thus, we need to have the FirstUserTask spawn a new "true"
-/// FirstUserTask with a higher priority.
+// FirstUserTask has a priority of 0, and our kernel doesn't support negative
+// priorities. Thus, we need to have the FirstUserTask spawn a new "true"
+// FirstUserTask with a higher priority.
 #[no_mangle]
-pub extern "C" fn FirstUserTask() {
+pub extern "C" fn FirstUserTask() -> ! {
     sys::create(4, first_user_task).unwrap();
     sys::exit();
 }

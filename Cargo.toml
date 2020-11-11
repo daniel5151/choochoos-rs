@@ -7,8 +7,10 @@ members = [
 
     "ts7200",
 
+    "distros/extern_userspace",
     "distros/k1",
     "distros/k2",
+    "distros/ns_test",
 ]
 
 [profile.release]

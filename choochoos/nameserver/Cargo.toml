@@ -5,13 +5,9 @@ authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-# while it'd be nice to directly depend on the `choochoos` library, we can't, as
-# that would result in a cyclic dependency.
-abi = { package = "choochoos-abi", path = "../../choochoos-abi" }
+# It'd be nice to directly depend on the `choochoos` library, we can't, as that
+# would result in a cyclic dependency. As such, we have to manually import the
+# syscall crate directly.
 syscall = { path = "../syscall" }
 
-owo-colors = "1.1"
-
-# TEMP - used for bwprintln, but conceptually, the nameserver doesn't actually
-# use any platform-specific bits of functionality
-ts7200 = { path = "../../ts7200" }
+heapless = { version = "0.5", default-features = false }

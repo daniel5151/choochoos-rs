@@ -1,0 +1,13 @@
+[package]
+name = "ns_test"
+version = "0.1.0"
+authors = ["Daniel Prilik <danielprilik@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "ns_test"
+crate-type = ["staticlib"]
+
+[dependencies]
+choochoos = { path = "../../choochoos" }
+ts7200 = { path = "../../ts7200" }

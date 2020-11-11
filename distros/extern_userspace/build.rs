@@ -1,6 +1,6 @@
 fn main() {
     #[allow(clippy::single_match)]
-    match std::env::var("DISTRO") {
+    match std::env::var("EXTERN_DISTRO") {
         Ok(distro) => {
             // link with pre-compiled userspace that's in the `bin/` folder
             println!("cargo:rustc-link-search=native=bin");
