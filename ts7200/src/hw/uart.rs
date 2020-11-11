@@ -6,6 +6,8 @@ use crate::constants::uart;
 pub enum Channel {
     COM1,
     COM2,
+    #[doc(hidden)]
+    COM3,
 }
 
 /// Provides a low-level interface to the UART devices on the TS-7200 board.
@@ -31,6 +33,7 @@ impl Uart {
             base: match channel {
                 Channel::COM1 => uart::UART1_BASE,
                 Channel::COM2 => uart::UART2_BASE,
+                Channel::COM3 => uart::UART2_BASE + 0x10000,
             },
             _not_sync: core::marker::PhantomData,
         }

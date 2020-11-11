@@ -37,7 +37,7 @@ pub extern "C" fn FirstUserTask() -> ! {
     assert_eq!(ns::who_is("task 3!!!").unwrap(), Some(t3));
     assert_eq!(ns::who_is("???").unwrap(), None);
 
-    bwprintln!("OK");
+    bwprintln!(COM2, "OK");
 
     sys::exit();
 }

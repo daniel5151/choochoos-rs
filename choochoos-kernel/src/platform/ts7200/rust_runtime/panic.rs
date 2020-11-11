@@ -8,7 +8,7 @@ static mut RECURSIVE_PANIC: bool = false;
 #[allow(dead_code, clippy::empty_loop)]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     // prints "kernel panicked at ..."
-    ts7200::bwprintln!("{}{}", "kernel ".red(), info.red());
+    ts7200::bwprintln!(COM2, "{}{}", "kernel ".red(), info.red());
 
     // TODO?: flush kernel logs
     // TODO?: manual backtrace / crash dump

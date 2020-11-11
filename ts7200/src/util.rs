@@ -8,54 +8,86 @@ use core::fmt;
 
 use crate::hw::uart::{self, Uart};
 
-/// Implements `fmt::Write` on COM2 using busy-waiting.
-pub struct BusyWaitLogger;
+/// Wrapper around a raw UART that implements `fmt::Write` using busy-waiting.
+pub struct BusyWaitLogger {
+    uart: Uart,
+}
+
+impl BusyWaitLogger {
+    /// Create a new BusyWaitLogger.
+    ///
+    /// # Safety
+    ///
+    /// There should only be a single Uart struct acting on a physical UART at
+    /// any given time. This type does not have any internal synchronization,
+    /// and may result in "spooky action at a distance" if multiple instances
+    /// are used at the same time!
+    pub unsafe fn new(channel: uart::Channel) -> BusyWaitLogger {
+        BusyWaitLogger {
+            uart: Uart::new(channel),
+        }
+    }
+}
 
 impl fmt::Write for BusyWaitLogger {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let uart = unsafe {
-            static mut COM2: Option<Uart> = None;
-            // lazy initialization
-            if COM2.is_none() {
-                COM2 = Some(Uart::new(uart::Channel::COM2));
-            }
-
-            COM2.as_mut().unwrap()
-        };
-
         for &b in s.as_bytes() {
             if b == b'\n' {
-                uart.write_byte_blocking(b'\r');
+                self.uart.write_byte_blocking(b'\r');
             }
-            uart.write_byte_blocking(b);
+            self.uart.write_byte_blocking(b);
         }
 
         Ok(())
     }
 }
 
-/// Debug macro to dump output via COM2 using busy waiting. Appends "\n\r" to
-/// the ouptut.
+/// Debug macro to output data over a COM channel using busy waiting.
+/// Appends "\n\r" to the ouptut.
+///
+/// e.g:
+///
+/// ```rust
+/// bwprintln!(COM2, "Hello {}!", "World");
+/// ```
 #[macro_export]
 macro_rules! bwprintln {
-    () => { $crate::bwprintln!("") };
-    ($fmt:literal) => { $crate::bwprintln!($fmt,) };
-    ($fmt:literal, $($arg:tt)*) => {{
+    (@no_com) => { compile_error!("Missing COM argument!"); };
+
+    () => { $crate::bwprintln!(@no_com) };
+    ($fmt:literal) => { $crate::bwprintln!(@no_com) };
+
+    ($com:ident) => { $crate::bwprintln!($com, "") };
+    ($com:ident, $fmt:literal) => { $crate::bwprintln!($com, $fmt,) };
+    ($com:ident, $fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
-        $crate::util::BusyWaitLogger
+        use $crate::hw::uart;
+        unsafe { $crate::util::BusyWaitLogger::new(uart::Channel::$com) }
             .write_fmt(format_args!(concat!($fmt, "\n\r"), $($arg)*))
             .unwrap();
     }};
 }
 
-/// Debug macro to dump output via COM2 using busy waiting.
+/// Debug macro to output data over a COM channel using busy waiting.
+///
+/// e.g:
+///
+/// ```rust
+/// bwprint!(COM2, "Hello {}!", "World");
+/// ```
 #[macro_export]
 macro_rules! bwprint {
-    () => { $crate::bwprint!("") };
-    ($fmt:literal) => { $crate::bwprint!($fmt,) };
-    ($fmt:literal, $($arg:tt)*) => {{
+    (@no_com) => { compile_error!("Missing COM argument!"); };
+
+    () => { $crate::bwprint!(@no_com) };
+    ($fmt:literal) => { $crate::bwprint!(@no_com) };
+
+    ($com:ident) => { $crate::bwprint!($com, "") };
+    ($com:ident, $fmt:literal) => { $crate::bwprint!($com, $fmt,) };
+    ($com:ident, $fmt:literal, $($arg:tt)*) => {{
         use core::fmt::Write;
-        $crate::util::BusyWaitLogger
+        use $crate::hw::uart;
+        unsafe { $crate::util::BusyWaitLogger::new(uart::Channel::$com) }
             .write_fmt(format_args!($fmt, $($arg)*))
             .unwrap();
     }};

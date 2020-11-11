@@ -12,12 +12,14 @@ use ts7200::bwprintln;
 
 extern "C" fn other_task() -> ! {
     bwprintln!(
+        COM2,
         "MyTid={:?} MyParentTid={:?}",
         sys::my_tid(),
         sys::my_parent_tid()
     );
     sys::r#yield();
     bwprintln!(
+        COM2,
         "MyTid={:?} MyParentTid={:?}",
         sys::my_tid(),
         sys::my_parent_tid()
@@ -27,11 +29,11 @@ extern "C" fn other_task() -> ! {
 
 // marked pub so that it can be referenced from the writeup docs.
 pub extern "C" fn first_user_task() -> ! {
-    bwprintln!("Created: {:?}", sys::create(3, other_task).unwrap());
-    bwprintln!("Created: {:?}", sys::create(3, other_task).unwrap());
-    bwprintln!("Created: {:?}", sys::create(5, other_task).unwrap());
-    bwprintln!("Created: {:?}", sys::create(5, other_task).unwrap());
-    bwprintln!("FirstUserTask: exiting");
+    bwprintln!(COM2, "Created: {:?}", sys::create(3, other_task).unwrap());
+    bwprintln!(COM2, "Created: {:?}", sys::create(3, other_task).unwrap());
+    bwprintln!(COM2, "Created: {:?}", sys::create(5, other_task).unwrap());
+    bwprintln!(COM2, "Created: {:?}", sys::create(5, other_task).unwrap());
+    bwprintln!(COM2, "FirstUserTask: exiting");
     sys::exit();
 }
 

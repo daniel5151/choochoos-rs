@@ -7,15 +7,18 @@ edition = "2018"
 [features]
 default = ["platform-ts7200"]
 
-# core kernel features
+# ==== core kernel features ==== #
 heap = ["linked_list_allocator"]
 kdebug = []
 
-# platform support
+# ==== Platform Support ==== #
 platform-ts7200 = ["ts7200", "choochoos-platform-ts7200"]
 
-# hax
+# ==== Hacks ==== #
+# sets the initial link-register of a task to point to the Exit() syscall.
 legacy-implicit-exit = []
+# use the virtual UART3 for kernel busy-wait logging
+platform-ts7200-emulated = []
 
 [dependencies]
 abi = { package = "choochoos-abi", path = "../choochoos-abi" }

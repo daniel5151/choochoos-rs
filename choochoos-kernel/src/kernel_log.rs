@@ -13,25 +13,27 @@ macro_rules! kdebug {
     ($fmt:literal, $($arg:tt)*) => {
         #[cfg(feature = "kdebug")]
         #[allow(unused_unsafe)]
-        unsafe {
-            use core::fmt::Write;
-            crate::platform::bwprint::BusyWaitLogger
-                .write_fmt(format_args!(
+        {
+            $crate::bwkprintln!(
+                "{} {}",
+                format_args!(
                     // foreground color = yellow
-                    concat!("\x1b[33m", "[kdebug][tid={}][{}:{}] ", "\x1b[0m", $fmt, "\n\r"),
-                    match $crate::KERNEL {
-                        Some(ref kernel) => {
-                            kernel.current_tid()
-                                .map(|t| t.raw() as isize)
-                                .unwrap_or(-1)
+                    concat!("\x1b[33m", "[kdebug][tid={}][{}:{}]", "\x1b[0m"),
+                    unsafe {
+                        match $crate::KERNEL {
+                            Some(ref kernel) => {
+                                kernel.current_tid()
+                                    .map(|t| t.raw() as isize)
+                                    .unwrap_or(-1)
+                            }
+                            None => core::hint::unreachable_unchecked(),
                         }
-                        None => unsafe { core::hint::unreachable_unchecked(); },
                     },
                     file!(),
                     line!(),
-                    $($arg)*
-                ))
-                .unwrap();
+                ),
+                format_args!($fmt, $($arg)*)
+            );
         }
         #[cfg(not(feature = "kdebug"))]
         {
@@ -41,23 +43,23 @@ macro_rules! kdebug {
 }
 
 /// General Purpose kernel logging mechanism. Appends "\n\r" to the output.
-// TODO: hook this into an internal log buffer instead of bwprint
+// TODO: hook this up to an internal log buffer instead of directly to bwprint
 #[macro_export]
 macro_rules! kprintln {
     () => { kprintln!("") };
     ($fmt:literal) => { kprintln!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {{
-        crate::platform::bwprint::bwprintln!($fmt, $($arg)*)
+        $crate::bwkprintln!($fmt, $($arg)*)
     }};
 }
 
 /// General Purpose kernel logging mechanism.
-// TODO: hook this into an internal log buffer instead of bwprint
+// TODO: hook this up to an internal log buffer instead of directly to bwprint
 #[macro_export]
 macro_rules! kprint {
     () => { kprint!("") };
     ($fmt:literal) => { kprint!($fmt,) };
     ($fmt:literal, $($arg:tt)*) => {
-        crate::platform::bwprint::bwprint!($fmt, $($arg)*)
+        $crate::bwkprint!($fmt, $($arg)*)
     };
 }

@@ -3,7 +3,7 @@
 
 mod rust_runtime;
 
-pub mod bwprint;
+pub mod bwkprint;
 pub mod interrupts;
 
 use core::ptr;
@@ -59,6 +59,7 @@ pub unsafe fn initialize() {
 pub unsafe fn teardown() {
     use owo_colors::OwoColorize;
     ts7200::bwprintln!(
+        COM2,
         "{}",
         "WARNING: ts7200 teardown isn't implemented, real hardware may require a hard reset!"
             .yellow()

@@ -4,7 +4,7 @@ use owo_colors::OwoColorize;
 #[allow(dead_code, clippy::empty_loop)]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     // prints "userspace panicked at ..."
-    ts7200::bwprintln!("{}{}", "userspace ".red(), info.red());
+    ts7200::bwprintln!(COM2, "{}{}", "userspace ".red(), info.red());
     // TODO: call `Shutdown` syscall
     loop {}
 }
