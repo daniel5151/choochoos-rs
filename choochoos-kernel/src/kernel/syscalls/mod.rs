@@ -166,8 +166,7 @@ impl Kernel {
                 sender_tid_dst,
                 mut recv_dst,
             } => {
-                let msg_len = msg.len().min(recv_dst.len());
-                recv_dst[..msg_len].copy_from_slice(&msg[..msg_len]);
+                let msg_len = recv_dst.copy_from_slice_min(msg);
 
                 if let Some(mut sender_tid_dst) = sender_tid_dst {
                     unsafe { *sender_tid_dst.as_mut() = sender_tid };
@@ -256,9 +255,7 @@ impl Kernel {
             _ => panic!("sender was not in SendWait state"),
         };
 
-        let msg_len = msg_src.len().min(msg_dst.len());
-
-        msg_dst[..msg_len].copy_from_slice(&msg_src[..msg_len]);
+        let msg_len = msg_dst.copy_from_slice_min(msg_src);
 
         if let Some(mut sender_tid_dst) = sender_tid_dst {
             unsafe {
@@ -304,9 +301,7 @@ impl Kernel {
             _ => return Err(Error::TidIsNotReplyBlocked),
         };
 
-        let msg_len = reply_dst.len().min(reply.len());
-
-        reply_dst[..msg_len].copy_from_slice(&reply[..msg_len]);
+        let msg_len = reply_dst.copy_from_slice_min(reply);
 
         // Return the length of the reply to the original sender.
         //
