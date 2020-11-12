@@ -6,5 +6,5 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // prints "userspace panicked at ..."
     ts7200::bwprintln!(COM2, "{}{}", "userspace ".red(), info.red());
     // TODO: call `Shutdown` syscall
-    loop {}
+    syscall::shutdown();
 }

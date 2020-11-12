@@ -135,6 +135,10 @@ fn dispatch_perf(kernel: &mut Kernel, stack: &mut UserStack) {
     kernel.syscall_perf(perf_data);
 }
 
+fn dispatch_shutdown(kernel: &mut Kernel, _stack: &mut UserStack) {
+    kernel.syscall_shutdown();
+}
+
 /// Called by the [`_swi_handler`](super::ctx_switch::_swi_handler) assembly
 /// routine.
 pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
@@ -161,6 +165,6 @@ pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
         SyscallNo::AwaitEvent => dispatch_await_event(kernel, stack),
         // custom extensions
         SyscallNo::Perf => dispatch_perf(kernel, stack),
-        other => panic!("unimplemented syscall: {:?}", other),
+        SyscallNo::Shutdown => dispatch_shutdown(kernel, stack),
     };
 }

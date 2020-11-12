@@ -378,4 +378,11 @@ impl Kernel {
             perf_data.idle_time_pct = 0; // XXX: actually track idle time
         }
     }
+
+    pub fn syscall_shutdown(&mut self) {
+        self.event_queue.clear();
+        self.ready_queue.clear();
+        self.tasks.iter_mut().for_each(|t| *t = None);
+        self.current_tid = None;
+    }
 }

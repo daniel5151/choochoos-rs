@@ -307,11 +307,16 @@ pub fn await_event(event_id: usize) -> Result<usize, error::AwaitEvent> {
     }
 }
 
-/// (custom ext) Return Kernel performance data (e.g: idle time).
+/// Custom - Obtain kernel-specific [`PerfData`].
 pub fn perf() -> abi::PerfData {
     unsafe {
         let mut perf_data = core::mem::MaybeUninit::<abi::PerfData>::uninit();
         ffi::Perf(perf_data.as_mut_ptr());
         perf_data.assume_init()
     }
+}
+
+/// Custom - Terminate the kernel.
+pub fn shutdown() -> ! {
+    unsafe { ffi::Shutdown() }
 }
