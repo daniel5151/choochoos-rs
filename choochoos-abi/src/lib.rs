@@ -17,24 +17,19 @@ use serde::{Deserialize, Serialize};
 
 /// A task identifier.
 ///
-/// This is a FFI-safe newtype around `usize` that can only be constructed
-/// through an unsafe constructor.
+/// This is a FFI-safe newtype around `usize`.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 #[repr(transparent)]
 pub struct Tid(usize);
 
 impl Tid {
     /// Create a new Tid from a raw value.
-    ///
-    /// # Safety
-    ///
-    /// `val` must correspond to a valid task descriptor.
-    pub unsafe fn from_raw(val: usize) -> Tid {
+    pub fn from(val: usize) -> Tid {
         Tid(val)
     }
 
     /// Return the Tid's raw value.
-    pub fn raw(self) -> usize {
+    pub fn into(self) -> usize {
         self.0
     }
 }

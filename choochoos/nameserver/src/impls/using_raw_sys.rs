@@ -85,7 +85,7 @@ impl NameServer {
                     // linear scan through registered names
                     for (&whois_tid, &(entry_idx, len)) in self.registrations.iter() {
                         if &self.arena[entry_idx..][..len] == name {
-                            let _ = sys::reply(tid, &whois_tid.raw().to_le_bytes());
+                            let _ = sys::reply(tid, &whois_tid.into().to_le_bytes());
                             continue 'msg;
                         }
                     }
@@ -151,7 +151,7 @@ fn who_is_impl(name: &[u8]) -> Result<Option<Tid>, Error> {
     let tid = match sys::send(NAMESERVER_TID, &req, &mut tid) {
         Ok(len) => match len {
             0 => None,
-            TID_SIZE => Some(unsafe { Tid::from_raw(usize::from_le_bytes(tid)) }),
+            TID_SIZE => Some(Tid::from(usize::from_le_bytes(tid))),
             _ => panic!("unexpected name server response"),
         },
         Err(sys::error::Send::TidDoesNotExist) => return Err(Error::InvalidNameserver),

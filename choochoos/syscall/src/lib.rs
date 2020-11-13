@@ -135,7 +135,7 @@ pub fn exit() -> ! {
 /// Returns the task id of the calling task.
 pub fn my_tid() -> Tid {
     // SAFETY: The MyTid syscall cannot return an error
-    unsafe { Tid::from_raw(ffi::MyTid() as usize) }
+    unsafe { Tid::from(ffi::MyTid() as usize) }
 }
 
 /// Returns the task id of the task that created the calling task.
@@ -146,7 +146,7 @@ pub fn my_parent_tid() -> Option<Tid> {
     match ret {
         e if e < 0 => None,
         // SAFETY: tid is guaranteed to be greater than zero
-        tid => Some(unsafe { Tid::from_raw(tid as usize) }),
+        tid => Some(Tid::from(tid as usize)),
     }
 }
 
@@ -167,7 +167,7 @@ pub fn create(priority: usize, function: extern "C" fn() -> !) -> Result<Tid, er
             _ => panic!("unexpected Create error: {}", e),
         },
         // SAFETY: tid is guaranteed to be greater than zero
-        tid => Ok(unsafe { Tid::from_raw(tid as usize) }),
+        tid => Ok(Tid::from(tid as usize)),
     }
 }
 
@@ -270,7 +270,7 @@ pub fn receive(mut msg: impl AsMut<[u8]>) -> Result<(Tid, usize), error::Receive
 }
 
 fn receive_impl(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
-    let mut tid = unsafe { Tid::from_raw(0) };
+    let mut tid = Tid::from(0);
     let ret = unsafe { ffi::Receive(&mut tid, msg.as_mut_ptr(), msg.len()) };
     match ret {
         e if ret < 0 => panic!("unexpected Receive error: {}", e),

@@ -55,7 +55,7 @@ pub unsafe extern "C" fn WhoIs(name: *const u8) -> isize {
     let name = core::slice::from_raw_parts(name, strlen(name));
 
     match who_is(name) {
-        Ok(Some(tid)) => tid.raw() as isize,
+        Ok(Some(tid)) => tid.into() as isize,
         Ok(None) => -2,
         Err(Error::InvalidNameserver) => -1,
     }

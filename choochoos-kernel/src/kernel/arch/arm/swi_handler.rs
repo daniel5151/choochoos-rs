@@ -16,13 +16,13 @@ fn dispatch_exit(kernel: &mut Kernel, _stack: &mut UserStack) {
 }
 
 fn dispatch_my_tid(kernel: &mut Kernel, stack: &mut UserStack) {
-    let ret = kernel.syscall_my_tid().raw();
+    let ret = kernel.syscall_my_tid().into();
     stack.inject_return_value(ret)
 }
 
 fn dispatch_my_parent_tid(kernel: &mut Kernel, stack: &mut UserStack) {
     let ret = match kernel.syscall_my_parent_tid() {
-        Ok(tid) => tid.raw() as isize,
+        Ok(tid) => tid.into() as isize,
         Err(code) => code as isize,
     };
 
@@ -35,7 +35,7 @@ fn dispatch_create(kernel: &mut Kernel, stack: &mut UserStack) {
     let function = unsafe { args.extract::<Option<unsafe extern "C" fn()>>() };
 
     let ret = match kernel.syscall_create(priority, function) {
-        Ok(tid) => tid.raw() as isize,
+        Ok(tid) => tid.into() as isize,
         Err(code) => code as isize,
     };
 

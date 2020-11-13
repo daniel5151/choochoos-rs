@@ -16,12 +16,12 @@ impl Kernel {
     pub fn syscall_exit(&mut self) {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
-        let task = self.tasks[current_tid.raw()].as_mut().unwrap();
+        let task = self.tasks[current_tid.into()].as_mut().unwrap();
 
         // unblock any tasks that might be waiting for a response
         if let Some(mut tid) = task.send_queue_head {
             loop {
-                let task = self.tasks[tid.raw()].as_mut().unwrap();
+                let task = self.tasks[tid.into()].as_mut().unwrap();
                 let next_tid = match task.state {
                     TaskState::SendWait { next, .. } => next,
                     _ => panic!(),
@@ -44,7 +44,7 @@ impl Kernel {
             }
         }
 
-        self.tasks[current_tid.raw()] = None;
+        self.tasks[current_tid.into()] = None;
         self.current_tid = None;
     }
 
@@ -56,7 +56,7 @@ impl Kernel {
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
 
-        self.tasks[current_tid.raw()]
+        self.tasks[current_tid.into()]
             .as_ref()
             .unwrap()
             .parent_tid
@@ -87,7 +87,7 @@ impl Kernel {
             .iter()
             .enumerate()
             .find(|(_, t)| t.is_none())
-            .map(|(i, _)| unsafe { Tid::from_raw(i) })
+            .map(|(i, _)| Tid::from(i))
             .ok_or(Error::OutOfTaskDescriptors)?;
 
         // set up a fresh stack for the new task. This requires some unsafe,
@@ -102,14 +102,14 @@ impl Kernel {
             // TODO: find a smarter user stack size number
             const USER_STACK_SIZE: usize = 0x40000;
 
-            let start_of_stack =
-                (&__USER_STACKS_START__ as *const _ as usize) + (USER_STACK_SIZE * (tid.raw() + 1));
+            let start_of_stack = (&__USER_STACKS_START__ as *const _ as usize)
+                + (USER_STACK_SIZE * (tid.into() + 1));
 
             super::arch::fresh_stack(start_of_stack, function)
         };
 
         // create the new task descriptor
-        self.tasks[tid.raw()] = Some(TaskDescriptor::new(priority, self.current_tid, sp));
+        self.tasks[tid.into()] = Some(TaskDescriptor::new(priority, self.current_tid, sp));
 
         self.ready_queue
             .push(ReadyQueueItem { tid, priority })
@@ -129,7 +129,7 @@ impl Kernel {
         // ensure that the receiver exists
         if !self
             .tasks
-            .get(receiver_tid.raw())
+            .get(receiver_tid.into())
             .map(Option::is_some)
             .unwrap_or(false)
         {
@@ -150,13 +150,13 @@ impl Kernel {
 
         macro_rules! receiver {
             () => {
-                self.tasks[receiver_tid.raw()].as_mut().unwrap()
+                self.tasks[receiver_tid.into()].as_mut().unwrap()
             };
         }
 
         macro_rules! sender {
             () => {
-                self.tasks[sender_tid.raw()].as_mut().unwrap();
+                self.tasks[sender_tid.into()].as_mut().unwrap();
             };
         }
 
@@ -193,7 +193,7 @@ impl Kernel {
                     Some(_) => {
                         assert!(receiver.send_queue_tail.is_some());
 
-                        let old_tail = self.tasks[receiver.send_queue_tail.unwrap().raw()]
+                        let old_tail = self.tasks[receiver.send_queue_tail.unwrap().into()]
                             .as_mut()
                             .unwrap();
                         match old_tail.state {
@@ -225,7 +225,7 @@ impl Kernel {
     ) -> Option<usize> {
         let receiver_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
-        let receiver = self.tasks[receiver_tid.raw()].as_mut().unwrap();
+        let receiver = self.tasks[receiver_tid.into()].as_mut().unwrap();
 
         if !matches!(receiver.state, TaskState::Ready) {
             panic!(
@@ -246,7 +246,7 @@ impl Kernel {
             }
         };
 
-        let sender = self.tasks[sender_tid.raw()]
+        let sender = self.tasks[sender_tid.into()]
             .as_mut()
             .expect("sender was unexpectedly missing");
 
@@ -271,7 +271,7 @@ impl Kernel {
         };
         sender.state = TaskState::ReplyWait { reply_dst };
 
-        let receiver = self.tasks[receiver_tid.raw()].as_mut().unwrap();
+        let receiver = self.tasks[receiver_tid.into()].as_mut().unwrap();
 
         receiver.send_queue_head = next;
         match receiver.send_queue_head {
@@ -291,7 +291,7 @@ impl Kernel {
 
         let receiver = self
             .tasks
-            .get_mut(tid.raw())
+            .get_mut(tid.into())
             .ok_or(Error::TidDoesNotExist)?
             .as_mut()
             .ok_or(Error::TidDoesNotExist)?;
@@ -333,7 +333,7 @@ impl Kernel {
 
         let current_tid =
             (self.current_tid).expect("called exec_syscall while `current_tid == None`");
-        let task = self.tasks[current_tid.raw()].as_mut().unwrap();
+        let task = self.tasks[current_tid.into()].as_mut().unwrap();
 
         if let Some(tid_or_volatile_data) = self.event_queue.remove(&event_id) {
             match tid_or_volatile_data {

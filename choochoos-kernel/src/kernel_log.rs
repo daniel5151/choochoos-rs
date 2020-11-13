@@ -23,7 +23,7 @@ macro_rules! kdebug {
                         match $crate::KERNEL {
                             Some(ref kernel) => {
                                 kernel.current_tid()
-                                    .map(|t| t.raw() as isize)
+                                    .map(|tid| tid.into() as isize)
                                     .unwrap_or(-1)
                             }
                             None => core::hint::unreachable_unchecked(),

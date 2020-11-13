@@ -126,12 +126,12 @@ impl Kernel {
 
             // activate the task
             self.current_tid = Some(tid);
-            let sp = self.tasks[tid.raw()].as_mut().unwrap().sp;
+            let sp = self.tasks[tid.into()].as_mut().unwrap().sp;
             let next_sp = unsafe { arch::_activate_task(sp) };
             self.current_tid = None;
 
             // there's a chance that the task was exited / destroyed
-            if let Some(ref mut task) = self.tasks[tid.raw()] {
+            if let Some(ref mut task) = self.tasks[tid.into()] {
                 task.sp = next_sp;
 
                 if matches!(task.state, TaskState::Ready) {
@@ -171,7 +171,7 @@ impl Kernel {
                         .expect("no more room in event_queue");
                 }
                 Some(EventQueueItem::BlockedTid(tid)) => {
-                    let blocked_task = match self.tasks[tid.raw()] {
+                    let blocked_task = match self.tasks[tid.into()] {
                         Some(ref mut task) => task,
                         None => {
                             kdebug!(
