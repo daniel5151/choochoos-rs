@@ -13,11 +13,13 @@
 #![no_std]
 #![deny(missing_docs)]
 
+use serde::{Deserialize, Serialize};
+
 /// A task identifier.
 ///
 /// This is a FFI-safe newtype around `usize` that can only be constructed
 /// through an unsafe constructor.
-#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 #[repr(transparent)]
 pub struct Tid(usize);
 
@@ -51,7 +53,7 @@ pub const NAMESERVER_TID: Tid = Tid(1);
 
 /// Container for various bits of kernel performance data returned as part of
 /// the `Perf` syscall.
-// TODO: rework this structure to not suck
+// TODO: improve `struct PerfData`.
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord, Hash)]
 #[repr(C)]
 pub struct PerfData {

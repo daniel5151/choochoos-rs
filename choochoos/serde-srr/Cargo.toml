@@ -1,0 +1,19 @@
+[package]
+name = "serde-srr"
+version = "0.1.0"
+authors = ["Daniel Prilik <danielprilik@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+syscall = { path = "../syscall" }
+
+serde = { version = "1.0.117", default-features = false, features = ["derive"] }
+
+heapless = { version = "0.5", default-features = false }
+
+    [dependencies.postcard]
+    # TODO: switch to upstream once jamesmunns/postcard#30 is merged
+    git = "https://github.com/daniel5151/postcard.git"
+    rev = "b92a6cd"
+    default-features = false
+    features = ["heapless"]

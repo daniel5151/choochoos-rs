@@ -5,3 +5,4 @@ authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+serde = { version = "1.0.117", default-features = false, features = ["derive"] }

@@ -194,19 +194,49 @@ pub fn send(
     msg: impl AsRef<[u8]>,
     mut reply: impl AsMut<[u8]>,
 ) -> Result<usize, error::Send> {
-    send_impl(tid, msg.as_ref(), reply.as_mut())
+    let msg = msg.as_ref();
+    let reply = reply.as_mut();
+    send_impl(
+        tid,
+        msg.as_ptr(),
+        msg.len(),
+        reply.as_mut_ptr(),
+        reply.len(),
+    )
 }
 
-fn send_impl(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Send> {
-    let ret = unsafe {
-        ffi::Send(
-            tid,
-            msg.as_ptr(),
-            msg.len(),
-            reply.as_mut_ptr(),
-            reply.len(),
-        )
-    };
+/// Sends a message to another task and receives a reply using the same buffer
+/// for both `msg` and `reply`.
+///
+/// See [`send`] for more details.
+///
+/// ### Why is this a separate method?
+///
+/// While it's be tempting to do some `unsafe` shenanigans to obtain a `&msg`
+/// and `&mut reply` that alias the same memory, and use those slices to call
+/// [`send`], doing so would be a gross violation of Rust's memory aliasing
+/// rules, and could result in undefined behavior with optimizations on.
+///
+/// The equivalent bug in C/C++ would be passing two aliased pointers to a
+/// function that requires two pointers qualified with
+/// [`restrict`](https://en.cppreference.com/w/c/language/restrict).
+pub fn send_shared_buf(
+    tid: Tid,
+    mut buf: impl AsMut<[u8]>,
+    msg_len: usize,
+) -> Result<usize, error::Send> {
+    let buf = buf.as_mut();
+    send_impl(tid, buf.as_ptr(), msg_len, buf.as_mut_ptr(), buf.len())
+}
+
+fn send_impl(
+    tid: Tid,
+    msg: *const u8,
+    msglen: usize,
+    reply: *mut u8,
+    replylen: usize,
+) -> Result<usize, error::Send> {
+    let ret = unsafe { ffi::Send(tid, msg, msglen, reply, replylen) };
     match ret {
         e if ret < 0 => match e {
             -1 => Err(error::Send::TidDoesNotExist),
@@ -215,7 +245,7 @@ fn send_impl(tid: Tid, msg: &[u8], reply: &mut [u8]) -> Result<usize, error::Sen
         },
         rplen => {
             let rplen = rplen as usize;
-            if rplen > reply.len() {
+            if rplen > replylen {
                 // SAFETY: if rplen was zero, then `0 > reply.len(): usize` would never trigger
                 let rplen = unsafe { NonZeroUsize::new_unchecked(rplen) };
                 Err(error::Send::Truncated(rplen))
@@ -266,11 +296,11 @@ fn receive_impl(msg: &mut [u8]) -> Result<(Tid, usize), error::Receive> {
 /// The calling task and the sender return at the same logical time, so
 /// whichever is of higher priority runs first. If they are of the same
 /// priority, the sender runs first.
-pub fn reply(tid: Tid, reply: impl AsRef<[u8]>) -> Result<usize, error::Reply> {
+pub fn reply(tid: Tid, reply: impl AsRef<[u8]>) -> Result<(), error::Reply> {
     reply_impl(tid, reply.as_ref())
 }
 
-fn reply_impl(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
+fn reply_impl(tid: Tid, reply: &[u8]) -> Result<(), error::Reply> {
     let ret = unsafe { ffi::Reply(tid, reply.as_ptr(), reply.len()) };
     match ret {
         e if ret < 0 => match e {
@@ -285,7 +315,7 @@ fn reply_impl(tid: Tid, reply: &[u8]) -> Result<usize, error::Reply> {
                 let rplen = unsafe { NonZeroUsize::new_unchecked(rplen) };
                 Err(error::Reply::Truncated(rplen))
             } else {
-                Ok(rplen)
+                Ok(())
             }
         }
     }

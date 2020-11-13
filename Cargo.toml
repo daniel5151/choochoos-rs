@@ -1,6 +1,10 @@
 [workspace]
 members = [
     "choochoos",
+    "choochoos/nameserver",
+    "choochoos/serde-srr",
+    "choochoos/syscall",
+
     "choochoos-abi",
     "choochoos-kernel",
     "choochoos-platform-ts7200",

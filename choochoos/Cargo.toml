@@ -9,9 +9,11 @@ abi = { package = "choochoos-abi", path = "../choochoos-abi" }
 
 syscall = { path = "./syscall" }
 nameserver = { path = "./nameserver" }
+serde-srr = { path = "./serde-srr" }
 
 owo-colors = "1.1"
+serde = { version = "1.0.117", default-features = false, features = ["derive"] }
 
-# TEMP - used for bwprintln, but conceptually, this library shouldn't use any
-# platform-specific bits of functionality
+# TEMP - used for the bwprintln in the panic implementation, but this really
+# should be replaced with a more platform-agnostic implementation
 ts7200 = { path = "../ts7200" }
