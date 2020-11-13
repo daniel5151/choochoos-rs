@@ -193,7 +193,7 @@ checksum = "7a1250cdd103eef6bd542b5ae82989f931fc00a41a27f60377338241594410f3"
 [[package]]
 name = "postcard"
 version = "0.5.1"
-source = "git+https://github.com/daniel5151/postcard.git?rev=b92a6cd#b92a6cd53715dbb6d0b143457a8281120a872626"
+source = "git+https://github.com/jamesmunns/postcard.git?rev=e9b7a89#e9b7a89ee40bf8974707100ab36e8804f14cd51c"
 dependencies = [
  "heapless",
  "postcard-cobs",

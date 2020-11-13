@@ -12,8 +12,8 @@ serde = { version = "1.0.117", default-features = false, features = ["derive"] }
 heapless = { version = "0.5", default-features = false }
 
     [dependencies.postcard]
-    # TODO: switch to upstream once jamesmunns/postcard#30 is merged
-    git = "https://github.com/daniel5151/postcard.git"
-    rev = "b92a6cd"
+    # TODO: switch to crates.io once jamesmunns/postcard#30 is included in a release
+    git = "https://github.com/jamesmunns/postcard.git"
+    rev = "e9b7a89"
     default-features = false
     features = ["heapless"]
