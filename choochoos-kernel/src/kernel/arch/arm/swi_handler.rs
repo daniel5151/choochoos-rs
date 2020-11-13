@@ -62,7 +62,7 @@ fn dispatch_reply(kernel: &mut Kernel, stack: &mut UserStack) {
     stack.inject_return_value(ret)
 }
 
-fn dispatch_recieve(kernel: &mut Kernel, stack: &mut UserStack) {
+fn dispatch_receive(kernel: &mut Kernel, stack: &mut UserStack) {
     let mut args = stack.args();
     let sender_tid_dst = unsafe { args.extract::<*mut Tid>() };
     let msg_ptr = unsafe { args.extract::<*mut u8>() };
@@ -80,7 +80,7 @@ fn dispatch_recieve(kernel: &mut Kernel, stack: &mut UserStack) {
         unsafe { user_slice::from_raw_parts_mut(ptr::NonNull::new_unchecked(msg_ptr), msg_len) }
     };
 
-    if let Some(response_len) = kernel.syscall_recieve(sender_tid_dst, msg) {
+    if let Some(response_len) = kernel.syscall_receive(sender_tid_dst, msg) {
         stack.inject_return_value(response_len)
     };
 }
@@ -160,7 +160,7 @@ pub unsafe extern "C" fn handle_syscall(no: u8, sp: *mut UserStack) {
         SyscallNo::MyTid => dispatch_my_tid(kernel, stack),
         SyscallNo::Create => dispatch_create(kernel, stack),
         SyscallNo::Send => dispatch_send(kernel, stack),
-        SyscallNo::Receive => dispatch_recieve(kernel, stack),
+        SyscallNo::Receive => dispatch_receive(kernel, stack),
         SyscallNo::Reply => dispatch_reply(kernel, stack),
         SyscallNo::AwaitEvent => dispatch_await_event(kernel, stack),
         // custom extensions
