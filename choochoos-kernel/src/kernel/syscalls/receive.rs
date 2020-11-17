@@ -1,5 +1,3 @@
-//! Syscall handler implementations. See the [`Kernel`] docs.
-
 use core::ptr;
 
 use abi::Tid;

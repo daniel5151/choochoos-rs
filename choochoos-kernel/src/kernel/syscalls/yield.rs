@@ -1,5 +1,3 @@
-//! Syscall handler implementations. See the [`Kernel`] docs.
-
 use crate::kernel::Kernel;
 
 /// Syscall handler implementations.

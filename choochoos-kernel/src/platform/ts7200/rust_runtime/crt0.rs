@@ -1,6 +1,7 @@
 use core::ffi::c_void;
 
-/// The first function called by the bootloader.
+/// The first function called by the bootloader. On most platforms, this would
+/// return `!`, but the `ts7200` emulator supports returning a return value.
 #[no_mangle]
 unsafe extern "C" fn _start() -> isize {
     // save the return address on the stack, as super::REDBOOT_RETURN_ADDRESS

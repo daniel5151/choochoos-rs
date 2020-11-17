@@ -1,5 +1,3 @@
-//! Syscall handler implementations. See the [`Kernel`] docs.
-
 use abi::Tid;
 
 use crate::util::user_slice::{UserSlice, UserSliceMut};

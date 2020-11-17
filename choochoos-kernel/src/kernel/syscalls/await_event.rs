@@ -1,5 +1,3 @@
-//! Syscall handler implementations. See the [`Kernel`] docs.
-
 use crate::kernel::task::TaskState;
 use crate::kernel::{EventQueueItem, Kernel};
 

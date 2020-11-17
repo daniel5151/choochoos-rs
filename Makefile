@@ -51,7 +51,7 @@ kernel:
 
 .PHONY: doc
 doc:
-	cargo doc --no-deps --document-private-items --all-features
+	cargo doc --no-deps --all-features
 
 clean:
 	rm -rf ./bin/
